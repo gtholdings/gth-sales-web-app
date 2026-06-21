@@ -8,16 +8,17 @@ import { supabaseAdmin } from './supabase';
  * fetches user profile, and validates status and role.
  *
  * Usage in API routes:
- *   export const GET = withAuth(['any'], async (req, { user, supabaseAdmin }) => {
+ *   export const GET = withAuth(['any'], async (req, { user, supabaseAdmin, params }) => {
+ *     const { id } = await params; // for dynamic [id] routes
  *     // handler code
  *   });
  *
  * @param {string | string[]} allowedRoles - Array of roles allowed, or 'any' to bypass role check
- * @param {Function} handler - Async handler function that receives (request, { user, supabaseAdmin })
+ * @param {Function} handler - Async handler receiving (request, { user, supabaseAdmin, params })
  * @returns {Function} - Next.js API route handler
  */
 export const withAuth = (allowedRoles, handler) => {
-  return async (request) => {
+  return async (request, context) => {
     try {
       // Extract Authorization header
       const authHeader = request.headers.get('authorization');
@@ -80,8 +81,9 @@ export const withAuth = (allowedRoles, handler) => {
         ...profile,
       };
 
-      // Call handler with user and supabaseAdmin
-      return await handler(request, { user, supabaseAdmin });
+      // Call handler with user, supabaseAdmin, and the Next route context
+      // (context.params is a Promise in Next 15 — handlers must await it).
+      return await handler(request, { user, supabaseAdmin, params: context?.params });
     } catch (error) {
       console.error('Auth middleware error:', error);
       return NextResponse.json(

@@ -47,7 +47,7 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
 
     // Build query with scope filtering
     let query = supabaseAdmin
-      .from('sales')
+      .from('dialog_tv_sales')
       .select(
         `
         *,
@@ -147,7 +147,7 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
 
     // Create sale record
     const { data: sale, error } = await supabaseAdmin
-      .from('sales')
+      .from('dialog_tv_sales')
       .insert({
         rep_id: user.id,
         customer_name,

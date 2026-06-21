@@ -30,7 +30,7 @@ export const GET = withAuth(['manager', 'admin', 'finance'], async (request, { u
     const visibleRepIds = await getVisibleRepIds(user, supabaseAdmin);
 
     // Fetch all sales (with scope filtering)
-    let query = supabaseAdmin.from('sales').select('*');
+    let query = supabaseAdmin.from('dialog_tv_sales').select('*');
     query = scopeSalesQuery(query, visibleRepIds);
 
     const { data: allSales, error } = await query;

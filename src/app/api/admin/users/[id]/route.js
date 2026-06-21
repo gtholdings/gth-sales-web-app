@@ -24,10 +24,9 @@ import { NextResponse } from 'next/server';
  *   ...
  * }
  */
-export const PATCH = withAuth(['admin'], async (request, { supabaseAdmin }) => {
+export const PATCH = withAuth(['admin'], async (request, { supabaseAdmin, params }) => {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('id');
+    const { id: userId } = await params;
     const body = await request.json();
     const { status, role, reports_to } = body;
 
