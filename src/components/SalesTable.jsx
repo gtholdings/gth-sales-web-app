@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 const StatusBadge = ({ status }) => {
@@ -187,7 +188,11 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
               return (
                 <tr key={sale.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-gray-900">{saleDate}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{sale.customer_name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={`/sales/${sale.id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
+                      {sale.customer_name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-gray-700 font-mono text-xs">{sale.nic_number}</td>
                   <td className="px-4 py-3 text-gray-700">{sale.personal_phone}</td>
                   <td className="px-4 py-3 text-right font-semibold text-gray-900">{amount}</td>
