@@ -9,7 +9,7 @@ import logger from '@/lib/logger';
  * Headers: Authorization: Bearer {token}
  *
  * Response: {
- *   data: [
+ *   users: [
  *     {
  *       id: string
  *       email: string
@@ -39,7 +39,7 @@ export const GET = withAuth(['admin'], async (request, { supabaseAdmin }) => {
       );
     }
 
-    return NextResponse.json({ data: profiles || [] }, { status: 200 });
+    return NextResponse.json({ users: profiles || [] }, { status: 200 });
   } catch (error) {
     logger.error('Fetch pending users error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(

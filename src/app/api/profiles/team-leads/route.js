@@ -7,7 +7,7 @@ import logger from '@/lib/logger';
  * Public endpoint - returns list of active team leads (for dropdowns, etc)
  *
  * Response: {
- *   data: [
+ *   team_leads: [
  *     {
  *       id: string
  *       full_name: string
@@ -32,7 +32,7 @@ export const GET = async () => {
       );
     }
 
-    return NextResponse.json({ data: teamLeads || [] }, { status: 200 });
+    return NextResponse.json({ team_leads: teamLeads || [] }, { status: 200 });
   } catch (error) {
     logger.error('Fetch team leads error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(

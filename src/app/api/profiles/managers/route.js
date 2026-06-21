@@ -7,7 +7,7 @@ import logger from '@/lib/logger';
  * Public endpoint - returns list of active managers (for dropdowns, etc)
  *
  * Response: {
- *   data: [
+ *   managers: [
  *     {
  *       id: string
  *       full_name: string
@@ -32,7 +32,7 @@ export const GET = async () => {
       );
     }
 
-    return NextResponse.json({ data: managers || [] }, { status: 200 });
+    return NextResponse.json({ managers: managers || [] }, { status: 200 });
   } catch (error) {
     logger.error('Fetch managers error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(

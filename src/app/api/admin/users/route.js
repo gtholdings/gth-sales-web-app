@@ -47,7 +47,7 @@ export const GET = withAuth(['admin'], async (request, { supabaseAdmin }) => {
 
     return NextResponse.json(
       {
-        data: profiles || [],
+        users: profiles || [],
         total: count || 0,
       },
       { status: 200 }
