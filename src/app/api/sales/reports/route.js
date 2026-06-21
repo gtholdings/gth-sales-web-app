@@ -65,10 +65,12 @@ export const GET = withAuth(['manager', 'admin', 'finance'], async (request, { u
 
     return NextResponse.json(
       {
-        total_sales: totalSales,
-        total_revenue: totalRevenue,
-        by_status: byStatus,
-        by_payment_type: byPaymentType,
+        stats: {
+          total_sales: totalSales,
+          total_revenue: totalRevenue,
+          by_status: byStatus,
+          by_payment_type: byPaymentType,
+        },
       },
       { status: 200 }
     );
