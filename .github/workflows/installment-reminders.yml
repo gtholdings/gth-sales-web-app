@@ -1,0 +1,26 @@
+name: Installment Reminders
+
+# Daily job that hits the secured reminder endpoint. Platform-agnostic — it
+# only needs a public URL + the shared secret, so it works with Netlify,
+# Supabase, or any host. Alternative: cron-job.org (set a custom request
+# header `x-cron-secret: <secret>` on the same URL).
+
+on:
+  schedule:
+    # 02:30 UTC ≈ 08:00 Asia/Colombo (UTC+5:30). GitHub cron is best-effort;
+    # the endpoint is idempotent so an occasional delay/retry is harmless.
+    - cron: '30 2 * * *'
+  workflow_dispatch: {} # manual run for testing
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reminder endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}        # e.g. https://your-site.netlify.app
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST "$APP_URL/api/cron/installment-reminders" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "content-type: application/json"
