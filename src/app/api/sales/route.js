@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds, scopeSalesQuery } from '@/lib/scope-query';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * GET /api/sales
@@ -79,7 +80,7 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
       { status: 200 }
     );
   } catch (error) {
-    console.error('Fetch sales error:', error);
+    logger.error('Fetch sales error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -175,7 +176,7 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {
-    console.error('Create sale error:', error);
+    logger.error('Create sale error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

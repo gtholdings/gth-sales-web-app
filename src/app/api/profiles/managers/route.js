@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 /**
  * GET /api/profiles/managers
@@ -33,7 +34,7 @@ export const GET = async () => {
 
     return NextResponse.json({ data: managers || [] }, { status: 200 });
   } catch (error) {
-    console.error('Fetch managers error:', error);
+    logger.error('Fetch managers error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

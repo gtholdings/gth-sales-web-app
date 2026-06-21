@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * GET /api/admin/users/pending
@@ -40,7 +41,7 @@ export const GET = withAuth(['admin'], async (request, { supabaseAdmin }) => {
 
     return NextResponse.json({ data: profiles || [] }, { status: 200 });
   } catch (error) {
-    console.error('Fetch pending users error:', error);
+    logger.error('Fetch pending users error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

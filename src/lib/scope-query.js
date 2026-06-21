@@ -5,6 +5,8 @@
  * This is the app-level access control (since we have NO RLS).
  */
 
+import logger from './logger';
+
 /**
  * Get list of rep IDs visible to the current user based on their role.
  *
@@ -39,7 +41,7 @@ export const getVisibleRepIds = async (user, supabaseAdmin) => {
       .eq('role', 'rep');
 
     if (error) {
-      console.error('Error fetching team lead subordinates:', error);
+      logger.error('Error fetching team lead subordinates:', { message: error?.message, stack: error?.stack });
       return [userId];
     }
 
@@ -56,7 +58,7 @@ export const getVisibleRepIds = async (user, supabaseAdmin) => {
       .eq('role', 'team_lead');
 
     if (tlError) {
-      console.error('Error fetching manager team leads:', tlError);
+      logger.error('Error fetching manager team leads:', { message: tlError?.message, stack: tlError?.stack });
       return [userId];
     }
 
@@ -70,7 +72,7 @@ export const getVisibleRepIds = async (user, supabaseAdmin) => {
       .eq('role', 'rep');
 
     if (repsError) {
-      console.error('Error fetching manager subordinate reps:', repsError);
+      logger.error('Error fetching manager subordinate reps:', { message: repsError?.message, stack: repsError?.stack });
       return [userId, ...teamLeadIds];
     }
 

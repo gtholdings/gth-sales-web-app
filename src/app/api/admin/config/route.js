@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * PUT /api/admin/config
@@ -82,7 +83,7 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    console.error('Update config error:', error);
+    logger.error('Update config error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds } from '@/lib/scope-query';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * POST /api/sales/[id]/approve
@@ -88,7 +89,7 @@ export const POST = withAuth(['team_lead', 'manager', 'admin'], async (request, 
 
     return NextResponse.json(updatedSale, { status: 200 });
   } catch (error) {
-    console.error('Approve sale error:', error);
+    logger.error('Approve sale error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

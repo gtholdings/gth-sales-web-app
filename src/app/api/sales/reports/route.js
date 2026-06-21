@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds, scopeSalesQuery } from '@/lib/scope-query';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * GET /api/sales/reports
@@ -72,7 +73,7 @@ export const GET = withAuth(['manager', 'admin', 'finance'], async (request, { u
       { status: 200 }
     );
   } catch (error) {
-    console.error('Fetch reports error:', error);
+    logger.error('Fetch reports error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

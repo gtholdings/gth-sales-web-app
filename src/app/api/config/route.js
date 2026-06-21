@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * GET /api/config
@@ -34,7 +35,7 @@ export const GET = withAuth(['any'], async (request, { supabaseAdmin }) => {
 
     return NextResponse.json({ data: config || [] }, { status: 200 });
   } catch (error) {
-    console.error('Fetch config error:', error);
+    logger.error('Fetch config error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

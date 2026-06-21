@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 /**
  * PATCH /api/admin/users/[id]
@@ -76,7 +77,7 @@ export const PATCH = withAuth(['admin'], async (request, { supabaseAdmin, params
 
     return NextResponse.json(updatedProfile, { status: 200 });
   } catch (error) {
-    console.error('Update user error:', error);
+    logger.error('Update user error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
