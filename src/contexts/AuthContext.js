@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (phone, password) => {
     try {
       setLoading(true);
       const response = await fetch('/api/auth/login', {
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ phone, password }),
       });
 
       if (!response.ok) {

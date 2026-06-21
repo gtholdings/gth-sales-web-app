@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading, login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,7 +25,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(phone, password);
       if (result.success) {
         router.push('/dashboard');
       } else {
@@ -70,15 +70,17 @@ export default function LoginPage() {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                Mobile Number
               </label>
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                type="tel"
+                inputMode="numeric"
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0771234567"
+                maxLength={10}
                 required
                 disabled={isLoading}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"

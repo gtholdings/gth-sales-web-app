@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { isValidLKMobile, PHONE_FORMAT_HINT } from '@/lib/phone';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -94,13 +95,13 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!formData.email.trim()) {
-      setError('Email is required');
+    if (!formData.phone.trim()) {
+      setError('Mobile number is required');
       return;
     }
 
-    if (!formData.phone.trim()) {
-      setError('Phone number is required');
+    if (!isValidLKMobile(formData.phone)) {
+      setError(PHONE_FORMAT_HINT);
       return;
     }
 
@@ -234,10 +235,33 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Email */}
+            {/* Mobile Number — this is the login username */}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                Mobile Number *
+              </label>
+              <input
+                type="tel"
+                inputMode="numeric"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                placeholder="0771234567"
+                maxLength={10}
+                required
+                disabled={isLoading}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                You will log in with this number. {PHONE_FORMAT_HINT}
+              </p>
+            </div>
+
+            {/* Email (optional — for communications only) */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address *
+                Email Address <span className="text-gray-400">(optional)</span>
               </label>
               <input
                 type="email"
@@ -246,28 +270,10 @@ export default function RegisterPage() {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="you@example.com"
-                required
                 disabled={isLoading}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number *
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder="+94 71 234 5678"
-                required
-                disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <p className="mt-1 text-sm text-gray-500">Used for notifications only, not for login.</p>
             </div>
 
             {/* Role */}

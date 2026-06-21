@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import logger from '@/lib/logger';
+import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
 
 /**
  * POST /api/auth/login
- * Public endpoint - authenticates user and returns tokens
+ * Public endpoint - authenticates user (by MOBILE PHONE) and returns tokens
  *
  * Body: {
- *   email: string (required)
+ *   phone: string (required) - 07 followed by 8 digits (e.g. 0771234567)
  *   password: string (required)
  * }
  *
@@ -16,7 +17,8 @@ import logger from '@/lib/logger';
  *   refresh_token: string
  *   user: {
  *     id: string
- *     email: string
+ *     phone: string
+ *     email: string | null
  *     full_name: string
  *     role: string
  *     status: string
@@ -26,41 +28,52 @@ import logger from '@/lib/logger';
 export const POST = async (request) => {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { phone, password } = body;
 
     // NOTE: never log the password.
-    logger.debug('Login attempt received', { email, hasPassword: Boolean(password) });
+    logger.debug('Login attempt received', { phone, hasPassword: Boolean(password) });
 
     // Validate required fields
-    if (!email || !password) {
+    if (!phone || !password) {
       logger.warn('Login rejected: missing fields', {
-        email: Boolean(email),
+        phone: Boolean(phone),
         password: Boolean(password),
       });
       return NextResponse.json(
-        { error: 'Missing required fields: email, password' },
+        { error: 'Missing required fields: phone, password' },
         { status: 400 }
       );
     }
 
-    // Sign in with email and password
+    // Validate the phone and map it to the synthetic Supabase Auth login email.
+    const localPhone = toLocalMobile(phone);
+    const authEmail = toAuthEmail(phone);
+    if (!localPhone || !authEmail) {
+      logger.warn('Login rejected: invalid phone format', { phone });
+      return NextResponse.json(
+        { error: `Invalid phone number. ${PHONE_FORMAT_HINT}` },
+        { status: 400 }
+      );
+    }
+
+    // Sign in with the phone-derived email and password
     const { data, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-      email,
+      email: authEmail,
       password,
     });
 
     if (signInError) {
       // Surface the REAL reason — e.g. "Invalid login credentials",
-      // "Email not confirmed", rate limiting, etc. This is the most
+      // "Phone not confirmed", rate limiting, etc. This is the most
       // common source of a login 401.
       logger.warn('Login 401: Supabase sign-in failed', {
-        email,
+        phone: localPhone,
         reason: signInError.message,
         code: signInError.code,
         status: signInError.status,
       });
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid phone number or password' },
         { status: 401 }
       );
     }
@@ -77,7 +90,7 @@ export const POST = async (request) => {
     if (profileError || !profile) {
       logger.warn('Login 401: profile lookup failed', {
         userId: data.user?.id,
-        email,
+        phone: localPhone,
         reason: profileError?.message,
         code: profileError?.code,
       });
@@ -107,6 +120,7 @@ export const POST = async (request) => {
         refresh_token: data.session.refresh_token,
         user: {
           id: profile.id,
+          phone: profile.phone,
           email: profile.email,
           full_name: profile.full_name,
           role: profile.role,
