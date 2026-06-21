@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import logger from '@/lib/logger';
 
 /**
  * POST /api/auth/register
@@ -34,14 +35,21 @@ export const POST = async (request) => {
       );
     }
 
-    // Create auth user via admin API
+    // Create auth user via admin API.
+    // NOTE: admin.createUser bypasses the dashboard "Confirm email" provider
+    // toggle — that setting only governs the public signUp flow. We must set
+    // email_confirm explicitly here, or the user is created unconfirmed and
+    // login fails with "Email not confirmed". This app has no email-link
+    // verification step; the real access gate is profiles.status (set to
+    // 'pending' below and approved by an admin), so we auto-confirm the email.
     const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: true,
     });
 
     if (authError) {
+      logger.warn('Register failed: createUser error', { email, reason: authError.message });
       return NextResponse.json(
         { error: authError.message || 'Failed to create user' },
         { status: 400 }
@@ -67,12 +75,20 @@ export const POST = async (request) => {
 
     if (profileError) {
       // Cleanup: delete the auth user if profile creation fails
+      logger.error('Register failed: profile insert error, rolling back auth user', {
+        userId: authUser.user.id,
+        email,
+        reason: profileError.message,
+        code: profileError.code,
+      });
       await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       return NextResponse.json(
         { error: 'Failed to create user profile' },
         { status: 500 }
       );
     }
+
+    logger.info('Register success', { userId: profile.id, role: profile.role, status: profile.status });
 
     return NextResponse.json(
       {
@@ -84,7 +100,7 @@ export const POST = async (request) => {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Register error:', error);
+    logger.error('Register route exception', { message: error.message, stack: error.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

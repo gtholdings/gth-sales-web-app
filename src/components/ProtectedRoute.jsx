@@ -31,8 +31,14 @@ export const ProtectedRoute = ({ children, allowedRoles = ['any'] }) => {
     return null;
   }
 
-  // Check role access
-  if (allowedRoles !== 'any' && !allowedRoles.includes(user.role)) {
+  // Check role access.
+  // Normalize allowedRoles so the 'any' sentinel works whether it's passed
+  // as the string 'any' or as ['any']. Admin (MD) always has full access.
+  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+  const hasAccess =
+    user.role === 'admin' || roles.includes('any') || roles.includes(user.role);
+
+  if (!hasAccess) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="bg-white rounded-lg shadow-lg p-8 text-center max-w-md">
