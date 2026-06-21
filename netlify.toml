@@ -3,6 +3,10 @@
   functions = "netlify/functions"
   publish = ".next"
 
+# Next 15 supports Node ^20.19 || ^22.13 || >=24. Pin to 22 LTS for build parity.
+[build.environment]
+  NODE_VERSION = "22"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
