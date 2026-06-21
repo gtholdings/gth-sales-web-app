@@ -114,12 +114,13 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
     );
   }
 
-  if (filteredSales.length === 0) {
+  // Only the truly-empty case (no records at all) renders the bare card.
+  // A search that matches nothing is handled inside the main view below so
+  // the search bar stays visible and can be cleared.
+  if (sales.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center">
-        <p className="text-gray-500 text-lg">
-          {searchTerm ? 'No sales found matching your search.' : 'No sales records found.'}
-        </p>
+        <p className="text-gray-500 text-lg">No sales records found.</p>
       </div>
     );
   }
@@ -137,6 +138,20 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
         />
       </div>
 
+      {/* No matches for the current search — keep the search bar above visible */}
+      {filteredSales.length === 0 ? (
+        <div className="p-8 text-center">
+          <p className="text-gray-500 text-lg mb-4">No sales found matching your search.</p>
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-lg transition-colors"
+          >
+            Clear search
+          </button>
+        </div>
+      ) : (
+      <>
       {/* Table - Responsive with horizontal scroll on mobile */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -223,6 +238,8 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
         Showing {filteredSales.length} of {sales.length} sales
       </div>
+      </>
+      )}
     </div>
   );
 };
