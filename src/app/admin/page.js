@@ -5,14 +5,47 @@ import { Navbar } from '@/components/Navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Roles the admin can assign. Reps report to a Team Lead; Team Leads report
+// to a Manager; other roles have no supervisor in the hierarchy.
+const ROLES = [
+  { value: 'rep', label: 'Sales Representative' },
+  { value: 'team_lead', label: 'Team Lead' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'support', label: 'Support' },
+];
+
 export default function AdminPage() {
   const { token } = useAuth();
   const [activeTab, setActiveTab] = useState('pending');
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [teamLeads, setTeamLeads] = useState([]);
+  const [managers, setManagers] = useState([]);
+  // Per-pending-user edits the admin makes before approving: { [id]: { role, reports_to } }
+  const [edits, setEdits] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState({});
+
+  // Supervisor options depend on the (possibly edited) role:
+  //   rep -> team leads, team_lead -> managers, otherwise none.
+  const supervisorOptionsFor = (role) => {
+    if (role === 'rep') return { label: 'Team Lead', options: teamLeads };
+    if (role === 'team_lead') return { label: 'Manager', options: managers };
+    return null;
+  };
+
+  // Update one field of a pending user's pending edit. Changing role clears the
+  // chosen supervisor, since the valid options change.
+  const setEdit = (userId, field, value) => {
+    setEdits((prev) => {
+      const next = { ...prev[userId], [field]: value };
+      if (field === 'role') next.reports_to = '';
+      return { ...prev, [userId]: next };
+    });
+  };
 
   // Fetch pending users
   useEffect(() => {
@@ -70,9 +103,43 @@ export default function AdminPage() {
     fetchAllUsers();
   }, [token]);
 
+  // Load active team leads + managers for the supervisor dropdowns.
+  useEffect(() => {
+    const fetchSupervisors = async () => {
+      try {
+        const [tlRes, mgrRes] = await Promise.all([
+          fetch('/api/profiles/team-leads'),
+          fetch('/api/profiles/managers'),
+        ]);
+        if (tlRes.ok) setTeamLeads((await tlRes.json()).team_leads || []);
+        if (mgrRes.ok) setManagers((await mgrRes.json()).managers || []);
+      } catch (err) {
+        console.error('Error fetching supervisors:', err);
+      }
+    };
+    fetchSupervisors();
+  }, []);
+
+  // Seed the editable role/supervisor for any pending user we haven't touched yet.
+  useEffect(() => {
+    setEdits((prev) => {
+      const next = { ...prev };
+      for (const u of pendingUsers) {
+        if (!next[u.id]) next[u.id] = { role: u.role, reports_to: u.reports_to || '' };
+      }
+      return next;
+    });
+  }, [pendingUsers]);
+
   const handleApproveUser = async (userId) => {
     try {
       setActionLoading((prev) => ({ ...prev, [userId]: true }));
+
+      // Apply the admin's edits (role + supervisor) alongside activation.
+      const edit = edits[userId] || {};
+      const role = edit.role;
+      const needsSupervisor = role === 'rep' || role === 'team_lead';
+      const reports_to = needsSupervisor ? edit.reports_to || null : null;
 
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
@@ -80,14 +147,14 @@ export default function AdminPage() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: 'active' }),
+        body: JSON.stringify({ status: 'active', role, reports_to }),
       });
 
       if (response.ok) {
-        // Remove from pending and add to all users
+        // Remove from pending and reflect the new role/supervisor/status in All Users.
         setPendingUsers((prev) => prev.filter((u) => u.id !== userId));
         setAllUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, status: 'active' } : u))
+          prev.map((u) => (u.id === userId ? { ...u, status: 'active', role, reports_to } : u))
         );
       } else {
         setError('Failed to approve user');
@@ -197,40 +264,70 @@ export default function AdminPage() {
                               <th className="px-6 py-3 text-left font-semibold text-gray-700">Email</th>
                               <th className="px-6 py-3 text-left font-semibold text-gray-700">Phone</th>
                               <th className="px-6 py-3 text-left font-semibold text-gray-700">Role</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Reports To</th>
                               <th className="px-6 py-3 text-center font-semibold text-gray-700">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {pendingUsers.map((user) => (
-                              <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
+                            {pendingUsers.map((user) => {
+                              const edit = edits[user.id] || { role: user.role, reports_to: user.reports_to || '' };
+                              const sup = supervisorOptionsFor(edit.role);
+                              const busy = actionLoading[user.id];
+                              return (
+                              <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50 align-top">
                                 <td className="px-6 py-4 font-medium text-gray-900">{user.full_name}</td>
-                                <td className="px-6 py-4 text-gray-700">{user.email}</td>
+                                <td className="px-6 py-4 text-gray-700">{user.email || '—'}</td>
                                 <td className="px-6 py-4 text-gray-700">{user.phone}</td>
                                 <td className="px-6 py-4 text-gray-700">
-                                  <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                                    {user.role.replace('_', ' ').toUpperCase()}
-                                  </span>
+                                  <select
+                                    value={edit.role}
+                                    onChange={(e) => setEdit(user.id, 'role', e.target.value)}
+                                    disabled={busy}
+                                    className="w-full min-w-[10rem] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  >
+                                    {ROLES.map((r) => (
+                                      <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td className="px-6 py-4 text-gray-700">
+                                  {sup ? (
+                                    <select
+                                      value={edit.reports_to || ''}
+                                      onChange={(e) => setEdit(user.id, 'reports_to', e.target.value)}
+                                      disabled={busy}
+                                      className="w-full min-w-[12rem] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    >
+                                      <option value="">-- Select a {sup.label} --</option>
+                                      {sup.options.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.full_name}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-gray-400 text-sm">—</span>
+                                  )}
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                   <div className="flex gap-2 justify-center">
                                     <button
                                       onClick={() => handleApproveUser(user.id)}
-                                      disabled={actionLoading[user.id]}
+                                      disabled={busy}
                                       className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                                     >
-                                      {actionLoading[user.id] ? 'Processing...' : 'Approve'}
+                                      {busy ? 'Processing...' : 'Approve'}
                                     </button>
                                     <button
                                       onClick={() => handleRejectUser(user.id)}
-                                      disabled={actionLoading[user.id]}
+                                      disabled={busy}
                                       className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                                     >
-                                      {actionLoading[user.id] ? 'Processing...' : 'Reject'}
+                                      {busy ? 'Processing...' : 'Reject'}
                                     </button>
                                   </div>
                                 </td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
