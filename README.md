@@ -36,7 +36,9 @@ npm install
 
 ### 4. Disable email confirmations (for local dev)
 
-In Supabase → **Authentication** → **Settings** → toggle off **"Enable email confirmations"**
+In Supabase → **Authentication** → **Sign In / Providers** → under **Auth Providers** click **Email** → toggle off **"Confirm email"** → **Save**.
+
+> Supabase moved this setting. It used to live under _Authentication → Settings_; it's now in the **Email** provider config. If your dashboard shows a different layout, look for the **Email** provider (Authentication → **Providers**) and the **Confirm email** toggle.
 
 This lets you register and login without email verification during development.
 
