@@ -22,7 +22,7 @@ export const Navbar = () => {
       items.push({ label: 'New Sale', href: '/sales/new' });
     }
 
-    if (['team_lead', 'manager', 'admin'].includes(user.role)) {
+    if (['team_lead', 'manager', 'admin', 'finance'].includes(user.role)) {
       items.push({ label: 'Reports', href: '/reports' });
     }
 
