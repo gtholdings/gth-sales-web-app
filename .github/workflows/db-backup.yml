@@ -20,6 +20,9 @@ on:
   schedule:
     # 18:30 UTC == 00:00 Asia/Colombo (UTC+5:30). Off-peak local time.
     # GitHub cron is best-effort; an occasional delay is fine for a daily dump.
+    # To run TWICE A WEEK instead of daily, swap the line below for:
+    #   - cron: '30 18 * * 1,4'   # Mon & Thu 00:00 Colombo (≤3-day gap; still
+    #                             # inside the 7-day pause window, so keepalive holds)
     - cron: '30 18 * * *'
   workflow_dispatch: {} # manual run for testing / on-demand backup
 
@@ -28,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout backup repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: gtholdings/gth-sales-backups
           ssh-key: ${{ secrets.BACKUP_SSH_KEY }}
