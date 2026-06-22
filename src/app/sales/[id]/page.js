@@ -8,6 +8,7 @@ import { InstallmentStatusBadge } from '@/components/InstallmentStatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { formatRs } from '@/lib/format';
+import { splitInstallmentAmounts, installmentDueDates } from '@/lib/installments';
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
@@ -118,6 +119,16 @@ function SaleDetail() {
 
   const { sale, installments, events } = data;
 
+  // Live, read-only preview for the approval panel — recomputes as the
+  // supervisor edits the down-payment amount, date, or installment count.
+  const apTotal = Number(sale.total_amount) || 0;
+  const apDown = parseFloat(appForm.base_amount) || 0;
+  const apLoan = Math.max(Math.round((apTotal - apDown) * 100) / 100, 0);
+  const apN = parseInt(appForm.number_of_installments, 10) || 0;
+  const apAmounts = apLoan > 0 && apN > 0 ? splitInstallmentAmounts(apLoan, apN) : [];
+  const apMonthly = apAmounts.length ? apAmounts[0] : 0;
+  const apDueDates = appForm.down_payment_date && apN > 0 ? installmentDueDates(appForm.down_payment_date, apN) : [];
+
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <button onClick={() => router.push('/sales')} className="text-blue-600 hover:underline text-sm mb-4">{t('common.back_to_sales')}</button>
@@ -175,6 +186,40 @@ function SaleDetail() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
             </div>
           </div>
+
+          {/* Live read-only recalculation */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500">{t('detail.loan_amount')}</div>
+              <div className="font-semibold text-gray-900">{formatRs(apLoan)}</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500">{t('detail.monthly')}</div>
+              <div className="font-semibold text-gray-900">{apMonthly ? formatRs(apMonthly) : '—'}</div>
+            </div>
+          </div>
+          {apDueDates.length > 0 && (
+            <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+              <div className="bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">{t('detail.schedule_preview')}</div>
+              <table className="w-full text-sm">
+                <tbody>
+                  <tr className="border-t border-gray-100 bg-blue-50/40">
+                    <td className="px-4 py-2 text-gray-700">{t('detail.down_payment_row')}</td>
+                    <td className="px-4 py-2 text-gray-900">{fmtDate(appForm.down_payment_date)}</td>
+                    <td className="px-4 py-2 text-right font-medium text-gray-900">{formatRs(apDown)}</td>
+                  </tr>
+                  {apDueDates.map((d, i) => (
+                    <tr key={d + i} className="border-t border-gray-100">
+                      <td className="px-4 py-2 text-gray-700">{t('detail.installment_n', { n: i + 1 })}</td>
+                      <td className="px-4 py-2 text-gray-900">{fmtDate(d)}</td>
+                      <td className="px-4 py-2 text-right font-medium text-gray-900">{formatRs(apAmounts[i])}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <textarea value={appForm.notes} onChange={(e) => setAppForm((p) => ({ ...p, notes: e.target.value }))}
             placeholder={t('common.notes_optional')} rows="2" className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
           <div className="flex gap-3">

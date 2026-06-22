@@ -103,6 +103,7 @@ const en = {
   'sales.col_rep': 'Rep',
   'sales.approve': 'Approve',
   'sales.reject': 'Reject',
+  'sales.review': 'Review',
 
   // sale status badges
   'sale_status.pending': 'Pending',
@@ -159,6 +160,9 @@ const en = {
   'detail.num_installments': 'Number of installments',
   'detail.down_payment_amount': 'Down payment (Rs.)',
   'detail.down_payment_date': 'Installation / down-payment date',
+  'detail.loan_amount': 'Loan Amount',
+  'detail.monthly': 'Monthly Installment',
+  'detail.schedule_preview': 'Installment Schedule',
   'detail.approve': 'Approve',
   'detail.reject': 'Reject',
   'detail.payments': 'Payments',

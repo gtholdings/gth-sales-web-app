@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { landingPathForRole } from '@/lib/nav';
 
 export default function HomePage() {
   const router = useRouter();
@@ -10,11 +11,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
+      router.push(user ? landingPathForRole(user.role) : '/login');
     }
   }, [user, loading, router]);
 
