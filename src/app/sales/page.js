@@ -5,9 +5,11 @@ import { Navbar } from '@/components/Navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { SalesTable } from '@/components/SalesTable';
 import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
 
 export default function SalesPage() {
   const { user, token } = useAuth();
+  const { t } = useT();
   const [sales, setSales] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,9 +64,9 @@ export default function SalesPage() {
           {/* Page Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900">
-              {user?.role === 'rep' ? 'My Sales' : 'All Sales'}
+              {user?.role === 'rep' ? t('sales.my_title') : t('sales.all_title')}
             </h1>
-            <p className="text-gray-600 mt-2">Dialog TV sales records</p>
+            <p className="text-gray-600 mt-2">{t('sales.subtitle')}</p>
           </div>
 
           {/* Error Message */}

@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { splitInstallmentAmounts, monthlyDueDates } from '@/lib/installments';
+import { useT } from '@/contexts/LanguageContext';
+import { splitInstallmentAmounts, installmentDueDates } from '@/lib/installments';
+import { formatRs } from '@/lib/format';
 
-// Sri Lankan NIC validation: 9 digits + V/X (old) or 12 digits (new)
+// Sri Lankan NIC: 9 digits + V/X (old) or 12 digits (new)
 const validateNIC = (nic) => /^\d{9}[VXvx]$/.test(nic) || /^\d{12}$/.test(nic);
-
-const lkr = (n) =>
-  new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(Number(n || 0));
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
 
@@ -21,12 +20,13 @@ const EMPTY = {
   total_amount: '',
   down_payment: '',
   num_installments: '',
-  first_due_date: '',
+  down_payment_date: '',
   notes: '',
 };
 
 export const SalesForm = ({ onSuccess, onClose }) => {
   const { token } = useAuth();
+  const { t } = useT();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -38,32 +38,30 @@ export const SalesForm = ({ onSuccess, onClose }) => {
     setError('');
   };
 
-  // ── Derived payment figures (auto-calculated) ─────────────────
+  // ── Auto-calculated figures ──────────────────────────
   const total = parseFloat(formData.total_amount) || 0;
   const down = parseFloat(formData.down_payment) || 0;
   const loan = Math.max(Math.round((total - down) * 100) / 100, 0);
   const n = parseInt(formData.num_installments, 10) || 0;
   const amounts = loan > 0 && n > 0 ? splitInstallmentAmounts(loan, n) : [];
   const monthly = amounts.length ? amounts[0] : 0;
-  const dueDates = formData.first_due_date && n > 0 ? monthlyDueDates(formData.first_due_date, n) : [];
+  const dueDates = formData.down_payment_date && n > 0 ? installmentDueDates(formData.down_payment_date, n) : [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
 
-    if (!formData.customer_name.trim()) return setError('Customer name is required');
-    if (!formData.nic_number.trim()) return setError('NIC number is required');
-    if (!validateNIC(formData.nic_number.trim()))
-      return setError('Invalid NIC format. Use 9 digits + V/X (old) or 12 digits (new).');
-    if (!formData.permanent_address.trim()) return setError('Permanent address is required');
-    if (!formData.personal_phone.trim()) return setError('Personal phone is required');
-
-    if (total <= 0) return setError('Total value must be greater than 0');
-    if (down < 0) return setError('Down payment cannot be negative');
-    if (down >= total) return setError('Down payment must be less than the total value (a loan is required)');
-    if (n < 1) return setError('Number of installments must be at least 1');
-    if (!formData.first_due_date) return setError('First installment date is required');
+    if (!formData.customer_name.trim()) return setError(t('form.err_customer'));
+    if (!formData.nic_number.trim()) return setError(t('form.err_nic'));
+    if (!validateNIC(formData.nic_number.trim())) return setError(t('form.err_nic_format'));
+    if (!formData.permanent_address.trim()) return setError(t('form.err_address'));
+    if (!formData.personal_phone.trim()) return setError(t('form.err_phone'));
+    if (total <= 0) return setError(t('form.err_total'));
+    if (down < 0) return setError(t('form.err_down_neg'));
+    if (down >= total) return setError(t('form.err_down_ge_total'));
+    if (n < 1) return setError(t('form.err_installments'));
+    if (!formData.down_payment_date) return setError(t('form.err_date'));
 
     try {
       setLoading(true);
@@ -75,12 +73,11 @@ export const SalesForm = ({ onSuccess, onClose }) => {
         office_phone: formData.office_phone.trim() || null,
         payment_type: 'installment',
         total_amount: total,
-        base_amount: down, // down payment (collected later by a supervisor)
+        base_amount: down,                          // proposed down payment
         num_installments: n,
-        first_due_date: formData.first_due_date,
+        down_payment_date: formData.down_payment_date, // proposed; supervisor finalizes
         notes: formData.notes.trim() || null,
       };
-
       const response = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -91,7 +88,7 @@ export const SalesForm = ({ onSuccess, onClose }) => {
         throw new Error(errorData.error || 'Failed to create sale');
       }
       const result = await response.json();
-      setSuccessMessage(`Sale recorded! It now awaits a supervisor to collect the down payment. (ID: ${result.id})`);
+      setSuccessMessage(t('form.success', { id: result.id }));
       setFormData(EMPTY);
       if (onSuccess) setTimeout(() => onSuccess(), 1500);
     } catch (err) {
@@ -109,11 +106,8 @@ export const SalesForm = ({ onSuccess, onClose }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-2">New Sale — Dialog TV</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        You record the sale and the proposed payment plan. A team lead or manager collects the
-        down payment and signs the agreement later — that is when the installment schedule is created.
-      </p>
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('form.title')}</h2>
+      <p className="text-sm text-gray-500 mb-6">{t('form.subtitle')}</p>
 
       {error && <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">{error}</div>}
       {successMessage && (
@@ -121,99 +115,99 @@ export const SalesForm = ({ onSuccess, onClose }) => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* ── Customer section ─────────────────────────────── */}
+        {/* Customer section */}
         <section>
-          <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">Customer Details</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">{t('form.customer_section')}</h3>
           <div className="space-y-4">
             <div>
-              <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
+              <label htmlFor="customer_name" className="block text-sm font-medium text-gray-700 mb-1">{t('form.customer_name')} *</label>
               <input type="text" id="customer_name" name="customer_name" value={formData.customer_name}
-                onChange={handleInputChange} placeholder="Full name" disabled={loading} className={inputCls} />
+                onChange={handleInputChange} disabled={loading} className={inputCls} />
             </div>
             <div>
-              <label htmlFor="nic_number" className="block text-sm font-medium text-gray-700 mb-1">NIC Number *</label>
+              <label htmlFor="nic_number" className="block text-sm font-medium text-gray-700 mb-1">{t('form.nic')} *</label>
               <input type="text" id="nic_number" name="nic_number" value={formData.nic_number}
-                onChange={handleInputChange} placeholder="123456789V or 200012345678" disabled={loading}
-                className={`${inputCls} uppercase`} />
+                onChange={handleInputChange} placeholder="123456789V / 200012345678" disabled={loading} className={`${inputCls} uppercase`} />
             </div>
             <div>
-              <label htmlFor="permanent_address" className="block text-sm font-medium text-gray-700 mb-1">Permanent Address *</label>
+              <label htmlFor="permanent_address" className="block text-sm font-medium text-gray-700 mb-1">{t('form.address')} *</label>
               <input type="text" id="permanent_address" name="permanent_address" value={formData.permanent_address}
-                onChange={handleInputChange} placeholder="Full address" disabled={loading} className={inputCls} />
+                onChange={handleInputChange} disabled={loading} className={inputCls} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="personal_phone" className="block text-sm font-medium text-gray-700 mb-1">Personal Phone *</label>
+                <label htmlFor="personal_phone" className="block text-sm font-medium text-gray-700 mb-1">{t('form.personal_phone')} *</label>
                 <input type="tel" id="personal_phone" name="personal_phone" value={formData.personal_phone}
-                  onChange={handleInputChange} placeholder="Mobile number" disabled={loading} className={inputCls} />
+                  onChange={handleInputChange} disabled={loading} className={inputCls} />
               </div>
               <div>
-                <label htmlFor="office_phone" className="block text-sm font-medium text-gray-700 mb-1">Office Phone</label>
+                <label htmlFor="office_phone" className="block text-sm font-medium text-gray-700 mb-1">{t('form.office_phone')}</label>
                 <input type="tel" id="office_phone" name="office_phone" value={formData.office_phone}
-                  onChange={handleInputChange} placeholder="Optional" disabled={loading} className={inputCls} />
+                  onChange={handleInputChange} disabled={loading} className={inputCls} />
               </div>
             </div>
           </div>
         </section>
 
-        {/* ── Payment section ──────────────────────────────── */}
+        {/* Payment section */}
         <section>
-          <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">Payment Plan</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-200">{t('form.payment_section')}</h3>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="total_amount" className="block text-sm font-medium text-gray-700 mb-1">Total Value (LKR) *</label>
+                <label htmlFor="total_amount" className="block text-sm font-medium text-gray-700 mb-1">{t('form.total_value')} *</label>
                 <input type="number" id="total_amount" name="total_amount" value={formData.total_amount}
                   onChange={handleInputChange} placeholder="0.00" step="0.01" min="0" disabled={loading} className={inputCls} />
               </div>
               <div>
-                <label htmlFor="down_payment" className="block text-sm font-medium text-gray-700 mb-1">Down Payment (LKR) *</label>
+                <label htmlFor="down_payment" className="block text-sm font-medium text-gray-700 mb-1">{t('form.down_payment')} *</label>
                 <input type="number" id="down_payment" name="down_payment" value={formData.down_payment}
                   onChange={handleInputChange} placeholder="0.00" step="0.01" min="0" disabled={loading} className={inputCls} />
               </div>
             </div>
 
-            {/* Loan Amount — auto */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loan Amount (LKR)</label>
-              <div className={readonlyCls}>{lkr(loan)}</div>
-              <p className="mt-1 text-xs text-gray-500">Auto: Total Value − Down Payment</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.loan_amount')}</label>
+              <div className={readonlyCls}>{formatRs(loan)}</div>
+              <p className="mt-1 text-xs text-gray-500">{t('form.loan_hint')}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="num_installments" className="block text-sm font-medium text-gray-700 mb-1">No. of Installments *</label>
+                <label htmlFor="num_installments" className="block text-sm font-medium text-gray-700 mb-1">{t('form.num_installments')} *</label>
                 <input type="number" id="num_installments" name="num_installments" value={formData.num_installments}
-                  onChange={handleInputChange} placeholder="e.g. 3" step="1" min="1" disabled={loading} className={inputCls} />
+                  onChange={handleInputChange} placeholder="3" step="1" min="1" disabled={loading} className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Installment (LKR)</label>
-                <div className={readonlyCls}>{monthly ? lkr(monthly) : '—'}</div>
-                <p className="mt-1 text-xs text-gray-500">Auto: Loan ÷ No. of Installments</p>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.monthly')}</label>
+                <div className={readonlyCls}>{monthly ? formatRs(monthly) : '—'}</div>
+                <p className="mt-1 text-xs text-gray-500">{t('form.monthly_hint')}</p>
               </div>
             </div>
 
-            {/* First installment date — editable; rest auto */}
             <div>
-              <label htmlFor="first_due_date" className="block text-sm font-medium text-gray-700 mb-1">First Installment Date *</label>
-              <input type="date" id="first_due_date" name="first_due_date" value={formData.first_due_date}
+              <label htmlFor="down_payment_date" className="block text-sm font-medium text-gray-700 mb-1">{t('form.proposed_date')} *</label>
+              <input type="date" id="down_payment_date" name="down_payment_date" value={formData.down_payment_date}
                 onChange={handleInputChange} disabled={loading} className={inputCls} />
-              <p className="mt-1 text-xs text-gray-500">
-                Agree this date with the customer. The remaining installments fall on the same day each month.
-              </p>
+              <p className="mt-1 text-xs text-gray-500">{t('form.proposed_date_hint')}</p>
             </div>
 
-            {/* Installment schedule preview — auto */}
+            {/* Schedule preview */}
             {dueDates.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">Installment Payment Dates</div>
+                <div className="bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-700">{t('form.schedule_title')}</div>
                 <table className="w-full text-sm">
                   <tbody>
+                    <tr className="border-t border-gray-100 bg-blue-50/40">
+                      <td className="px-4 py-2 text-gray-700">{t('form.down_payment_row')}</td>
+                      <td className="px-4 py-2 text-gray-900">{fmtDate(formData.down_payment_date)}</td>
+                      <td className="px-4 py-2 text-right font-medium text-gray-900">{formatRs(down)}</td>
+                    </tr>
                     {dueDates.map((d, i) => (
-                      <tr key={d} className="border-t border-gray-100">
-                        <td className="px-4 py-2 text-gray-700">Installment {i + 1}</td>
+                      <tr key={d + i} className="border-t border-gray-100">
+                        <td className="px-4 py-2 text-gray-700">{t('form.installment_n', { n: i + 1 })}</td>
                         <td className="px-4 py-2 text-gray-900">{fmtDate(d)}</td>
-                        <td className="px-4 py-2 text-right font-medium text-gray-900">{lkr(amounts[i])}</td>
+                        <td className="px-4 py-2 text-right font-medium text-gray-900">{formatRs(amounts[i])}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -222,30 +216,22 @@ export const SalesForm = ({ onSuccess, onClose }) => {
             )}
 
             <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">{t('common.notes_optional')}</label>
               <textarea id="notes" name="notes" value={formData.notes} onChange={handleInputChange}
-                rows="2" placeholder="Optional" disabled={loading} className={inputCls} />
+                rows="2" disabled={loading} className={inputCls} />
             </div>
           </div>
         </section>
 
         <button type="submit" disabled={loading}
           className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg text-lg transition-colors flex items-center justify-center">
-          {loading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Saving...
-            </>
-          ) : 'Submit Sale'}
+          {loading ? t('common.saving') : t('common.submit')}
         </button>
 
         {onClose && (
           <button type="button" onClick={onClose} disabled={loading}
             className="w-full bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg text-lg transition-colors">
-            Cancel
+            {t('common.cancel')}
           </button>
         )}
       </form>

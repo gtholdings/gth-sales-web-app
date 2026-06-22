@@ -6,9 +6,11 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { SalesTable } from '@/components/SalesTable';
 import { StatsCards } from '@/components/StatsCards';
 import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
 
 export default function DashboardPage() {
   const { user, token, loading } = useAuth();
+  const { t } = useT();
   const [sales, setSales] = useState([]);
   const [stats, setStats] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function DashboardPage() {
     );
   };
 
-  // Simple stats for rep/team_lead (without fetching reports)
+  // Simple stats for rep/supervisor (without fetching reports)
   const getSimpleStats = () => {
     const totalSales = sales.length;
     const pendingSales = sales.filter((s) => s.status === 'pending').length;
@@ -105,8 +107,8 @@ export default function DashboardPage() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600 mt-2">Welcome back, {user?.full_name}</p>
+            <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+            <p className="text-gray-600 mt-2">{t('dashboard.welcome', { name: user?.full_name })}</p>
           </div>
 
           {/* Error Message */}
@@ -126,7 +128,7 @@ export default function DashboardPage() {
           {/* Recent Sales Section */}
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              {user?.role === 'rep' ? 'My Sales' : 'All Sales'}
+              {user?.role === 'rep' ? t('dashboard.my_sales') : t('dashboard.all_sales')}
             </h2>
             <SalesTable
               sales={sales}

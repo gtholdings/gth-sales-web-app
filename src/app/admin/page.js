@@ -4,24 +4,26 @@ import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
 
-// Roles the admin can assign. Reps report to a Team Lead; Team Leads report
+// Roles the admin can assign. Reps report to a Supervisor; Supervisors report
 // to a Manager; other roles have no supervisor in the hierarchy.
 const ROLES = [
-  { value: 'rep', label: 'Sales Representative' },
-  { value: 'team_lead', label: 'Team Lead' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'support', label: 'Support' },
+  { value: 'rep' },
+  { value: 'supervisor' },
+  { value: 'manager' },
+  { value: 'admin' },
+  { value: 'finance' },
+  { value: 'support' },
 ];
 
 export default function AdminPage() {
   const { token } = useAuth();
+  const { t } = useT();
   const [activeTab, setActiveTab] = useState('pending');
   const [pendingUsers, setPendingUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
-  const [teamLeads, setTeamLeads] = useState([]);
+  const [supervisors, setSupervisors] = useState([]);
   const [managers, setManagers] = useState([]);
   // Per-pending-user edits the admin makes before approving: { [id]: { role, reports_to } }
   const [edits, setEdits] = useState({});
@@ -30,10 +32,10 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState({});
 
   // Supervisor options depend on the (possibly edited) role:
-  //   rep -> team leads, team_lead -> managers, otherwise none.
+  //   rep -> supervisors, supervisor -> managers, otherwise none.
   const supervisorOptionsFor = (role) => {
-    if (role === 'rep') return { label: 'Team Lead', options: teamLeads };
-    if (role === 'team_lead') return { label: 'Manager', options: managers };
+    if (role === 'rep') return { placeholder: t('admin.select_supervisor'), options: supervisors };
+    if (role === 'supervisor') return { placeholder: t('admin.select_manager'), options: managers };
     return null;
   };
 
@@ -103,15 +105,15 @@ export default function AdminPage() {
     fetchAllUsers();
   }, [token]);
 
-  // Load active team leads + managers for the supervisor dropdowns.
+  // Load active supervisors + managers for the supervisor dropdowns.
   useEffect(() => {
     const fetchSupervisors = async () => {
       try {
         const [tlRes, mgrRes] = await Promise.all([
-          fetch('/api/profiles/team-leads'),
+          fetch('/api/profiles/supervisors'),
           fetch('/api/profiles/managers'),
         ]);
-        if (tlRes.ok) setTeamLeads((await tlRes.json()).team_leads || []);
+        if (tlRes.ok) setSupervisors((await tlRes.json()).supervisors || []);
         if (mgrRes.ok) setManagers((await mgrRes.json()).managers || []);
       } catch (err) {
         console.error('Error fetching supervisors:', err);
@@ -138,7 +140,7 @@ export default function AdminPage() {
       // Apply the admin's edits (role + supervisor) alongside activation.
       const edit = edits[userId] || {};
       const role = edit.role;
-      const needsSupervisor = role === 'rep' || role === 'team_lead';
+      const needsSupervisor = role === 'rep' || role === 'supervisor';
       const reports_to = needsSupervisor ? edit.reports_to || null : null;
 
       const response = await fetch(`/api/admin/users/${userId}`, {
@@ -203,8 +205,8 @@ export default function AdminPage() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-            <p className="text-gray-600 mt-2">Manage users and system configuration</p>
+            <h1 className="text-3xl font-bold text-gray-900">{t('admin.title')}</h1>
+            <p className="text-gray-600 mt-2">{t('admin.subtitle')}</p>
           </div>
 
           {/* Error Message */}
@@ -225,7 +227,7 @@ export default function AdminPage() {
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
-                Pending Approvals ({pendingUsers.length})
+                {t('admin.tab_pending')} ({pendingUsers.length})
               </button>
               <button
                 onClick={() => setActiveTab('all')}
@@ -235,7 +237,7 @@ export default function AdminPage() {
                     : 'border-transparent text-gray-600 hover:text-gray-900'
                 }`}
               >
-                All Users ({allUsers.length})
+                {t('admin.tab_all')} ({allUsers.length})
               </button>
             </div>
           </div>
@@ -252,7 +254,7 @@ export default function AdminPage() {
                 <div>
                   {pendingUsers.length === 0 ? (
                     <div className="bg-white rounded-lg shadow p-6 text-center">
-                      <p className="text-gray-500 text-lg">No pending approvals</p>
+                      <p className="text-gray-500 text-lg">{t('admin.no_pending')}</p>
                     </div>
                   ) : (
                     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -260,12 +262,12 @@ export default function AdminPage() {
                         <table className="w-full">
                           <thead className="bg-gray-100 border-b border-gray-200">
                             <tr>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Name</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Email</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Phone</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Role</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Reports To</th>
-                              <th className="px-6 py-3 text-center font-semibold text-gray-700">Actions</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_name')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_email')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_phone')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_role')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_reports_to')}</th>
+                              <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('common.actions')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -286,7 +288,7 @@ export default function AdminPage() {
                                     className="w-full min-w-[10rem] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                   >
                                     {ROLES.map((r) => (
-                                      <option key={r.value} value={r.value}>{r.label}</option>
+                                      <option key={r.value} value={r.value}>{t('role.' + r.value)}</option>
                                     ))}
                                   </select>
                                 </td>
@@ -298,7 +300,7 @@ export default function AdminPage() {
                                       disabled={busy}
                                       className="w-full min-w-[12rem] px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     >
-                                      <option value="">-- Select a {sup.label} --</option>
+                                      <option value="">{sup.placeholder}</option>
                                       {sup.options.map((p) => (
                                         <option key={p.id} value={p.id}>{p.full_name}</option>
                                       ))}
@@ -314,14 +316,14 @@ export default function AdminPage() {
                                       disabled={busy}
                                       className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                                     >
-                                      {busy ? 'Processing...' : 'Approve'}
+                                      {busy ? t('common.processing') : t('admin.approve')}
                                     </button>
                                     <button
                                       onClick={() => handleRejectUser(user.id)}
                                       disabled={busy}
                                       className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                                     >
-                                      {busy ? 'Processing...' : 'Reject'}
+                                      {busy ? t('common.processing') : t('admin.reject')}
                                     </button>
                                   </div>
                                 </td>
@@ -341,7 +343,7 @@ export default function AdminPage() {
                 <div>
                   {allUsers.length === 0 ? (
                     <div className="bg-white rounded-lg shadow p-6 text-center">
-                      <p className="text-gray-500 text-lg">No users found</p>
+                      <p className="text-gray-500 text-lg">{t('admin.no_users')}</p>
                     </div>
                   ) : (
                     <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -349,12 +351,12 @@ export default function AdminPage() {
                         <table className="w-full">
                           <thead className="bg-gray-100 border-b border-gray-200">
                             <tr>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Name</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Email</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Phone</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Role</th>
-                              <th className="px-6 py-3 text-center font-semibold text-gray-700">Status</th>
-                              <th className="px-6 py-3 text-left font-semibold text-gray-700">Reports To</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_name')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_email')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_phone')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_role')}</th>
+                              <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('admin.col_status')}</th>
+                              <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_reports_to')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -372,7 +374,7 @@ export default function AdminPage() {
                                   <td className="px-6 py-4 text-gray-700">{user.phone}</td>
                                   <td className="px-6 py-4 text-gray-700">
                                     <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                                      {user.role.replace('_', ' ').toUpperCase()}
+                                      {t('role.' + user.role)}
                                     </span>
                                   </td>
                                   <td className="px-6 py-4 text-center">

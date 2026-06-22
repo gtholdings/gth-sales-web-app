@@ -3,10 +3,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
 
 export const ProtectedRoute = ({ children, allowedRoles = ['any'] }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { t } = useT();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -20,7 +22,7 @@ export const ProtectedRoute = ({ children, allowedRoles = ['any'] }) => {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -57,16 +59,15 @@ export const ProtectedRoute = ({ children, allowedRoles = ['any'] }) => {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('guard.access_denied')}</h2>
           <p className="text-gray-600 mb-6">
-            You do not have permission to access this page. Your current role is{' '}
-            <strong>{user.role.replace('_', ' ')}</strong>.
+            {t('guard.no_permission', { role: t('role.' + user.role) })}
           </p>
           <a
             href="/dashboard"
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors"
           >
-            Go to Dashboard
+            {t('guard.go_dashboard')}
           </a>
         </div>
       </div>

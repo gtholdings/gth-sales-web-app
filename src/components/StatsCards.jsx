@@ -1,5 +1,8 @@
 'use client';
 
+import { formatRs } from '@/lib/format';
+import { useT } from '@/contexts/LanguageContext';
+
 const StatCard = ({ title, value, icon, color = 'blue' }) => {
   const colorClasses = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
@@ -58,49 +61,22 @@ const CompletedIcon = () => (
 );
 
 export const StatsCards = ({ stats = {} }) => {
+  const { t } = useT();
   const {
     total_sales = 0,
     total_revenue = 0,
     by_status = {},
-    by_payment_type = {},
   } = stats;
 
   const pending = by_status.pending || 0;
   const completed = by_status.completed || 0;
 
-  const formattedRevenue = new Intl.NumberFormat('en-LK', {
-    style: 'currency',
-    currency: 'LKR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(total_revenue);
-
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-      <StatCard
-        title="Total Sales"
-        value={total_sales.toString()}
-        icon={<SalesIcon />}
-        color="blue"
-      />
-      <StatCard
-        title="Total Revenue"
-        value={formattedRevenue}
-        icon={<RevenueIcon />}
-        color="green"
-      />
-      <StatCard
-        title="Pending Approvals"
-        value={pending.toString()}
-        icon={<PendingIcon />}
-        color="yellow"
-      />
-      <StatCard
-        title="Completed Sales"
-        value={completed.toString()}
-        icon={<CompletedIcon />}
-        color="purple"
-      />
+      <StatCard title={t('stats.total_sales')} value={total_sales.toString()} icon={<SalesIcon />} color="blue" />
+      <StatCard title={t('stats.total_revenue')} value={formatRs(total_revenue)} icon={<RevenueIcon />} color="green" />
+      <StatCard title={t('stats.pending')} value={pending.toString()} icon={<PendingIcon />} color="yellow" />
+      <StatCard title={t('stats.completed')} value={completed.toString()} icon={<CompletedIcon />} color="purple" />
     </div>
   );
 };

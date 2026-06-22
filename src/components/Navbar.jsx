@@ -3,31 +3,34 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 export const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { t } = useT();
 
   if (!user) return null;
 
   // Define nav items based on user role
   const getNavItems = () => {
     const items = [
-      { label: 'Dashboard', href: '/dashboard' },
-      { label: 'Sales', href: '/sales' },
+      { label: t('nav.dashboard'), href: '/dashboard' },
+      { label: t('nav.sales'), href: '/sales' },
     ];
 
     if (user.role === 'rep') {
-      items.push({ label: 'New Sale', href: '/sales/new' });
+      items.push({ label: t('nav.new_sale'), href: '/sales/new' });
     }
 
-    if (['team_lead', 'manager', 'admin', 'finance'].includes(user.role)) {
-      items.push({ label: 'Reports', href: '/reports' });
+    if (['supervisor', 'manager', 'admin', 'finance'].includes(user.role)) {
+      items.push({ label: t('nav.reports'), href: '/reports' });
     }
 
     if (user.role === 'admin') {
-      items.push({ label: 'Admin', href: '/admin' });
+      items.push({ label: t('nav.admin'), href: '/admin' });
     }
 
     return items;
@@ -75,17 +78,19 @@ export const Navbar = () => {
                 <div className="font-medium">{user.full_name}</div>
                 <div className="text-blue-200 text-xs">
                   <span className="inline-block bg-blue-700 px-2 py-1 rounded">
-                    {user.role.replace('_', ' ').toUpperCase()}
+                    {t('role.' + user.role)}
                   </span>
                 </div>
               </div>
             </div>
 
+            <LanguageSwitcher className="hidden md:inline-block" />
+
             <button
               onClick={handleLogout}
               className="hidden md:inline-block bg-red-600 hover:bg-red-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              Logout
+              {t('nav.logout')}
             </button>
 
             {/* Mobile menu button */}
@@ -129,7 +134,7 @@ export const Navbar = () => {
               <div className="font-medium">{user.full_name}</div>
               <div className="text-blue-200 text-xs mt-1">
                 <span className="inline-block bg-blue-800 px-2 py-1 rounded">
-                  {user.role.replace('_', ' ').toUpperCase()}
+                  {t('role.' + user.role)}
                 </span>
               </div>
             </div>
@@ -150,12 +155,17 @@ export const Navbar = () => {
               </a>
             ))}
 
+            {/* Mobile language switcher */}
+            <div className="px-3 py-2">
+              <LanguageSwitcher />
+            </div>
+
             {/* Mobile logout button */}
             <button
               onClick={handleLogout}
               className="w-full text-left block px-3 py-2 rounded-md text-base font-medium bg-red-600 hover:bg-red-700 text-white transition-colors mt-4"
             >
-              Logout
+              {t('nav.logout')}
             </button>
           </div>
         </div>

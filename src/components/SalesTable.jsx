@@ -3,8 +3,11 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useT } from '@/contexts/LanguageContext';
+import { formatRs } from '@/lib/format';
 
 const StatusBadge = ({ status }) => {
+  const { t } = useT();
   const styles = {
     pending: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
     approved: 'bg-green-100 text-green-800 border border-green-300',
@@ -14,28 +17,28 @@ const StatusBadge = ({ status }) => {
 
   return (
     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[status] || styles.pending}`}>
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {t('sale_status.' + status)}
     </span>
   );
 };
 
 const PaymentBadge = ({ type }) => {
+  const { t } = useT();
   const styles = {
     full: 'bg-green-100 text-green-800 border border-green-300',
     installment: 'bg-blue-100 text-blue-800 border border-blue-300',
   };
 
-  const label = type === 'full' ? 'Full Payment' : 'Installment';
-
   return (
     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[type]}`}>
-      {label}
+      {t('payment_type.' + type)}
     </span>
   );
 };
 
 export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading = false }) => {
   const { token } = useAuth();
+  const { t } = useT();
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState({});
 
@@ -105,7 +108,7 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
     }
   };
 
-  const canApproveReject = ['team_lead', 'manager', 'admin'].includes(userRole);
+  const canApproveReject = ['supervisor', 'manager', 'admin'].includes(userRole);
 
   if (loading) {
     return (
@@ -121,7 +124,7 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
   if (sales.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center">
-        <p className="text-gray-500 text-lg">No sales records found.</p>
+        <p className="text-gray-500 text-lg">{t('sales.none')}</p>
       </div>
     );
   }
@@ -132,7 +135,7 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
       <div className="p-4 border-b border-gray-200">
         <input
           type="text"
-          placeholder="Search by customer name or NIC..."
+          placeholder={t('sales.search')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -142,13 +145,13 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
       {/* No matches for the current search — keep the search bar above visible */}
       {filteredSales.length === 0 ? (
         <div className="p-8 text-center">
-          <p className="text-gray-500 text-lg mb-4">No sales found matching your search.</p>
+          <p className="text-gray-500 text-lg mb-4">{t('sales.no_match')}</p>
           <button
             type="button"
             onClick={() => setSearchTerm('')}
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-5 rounded-lg transition-colors"
           >
-            Clear search
+            {t('sales.clear_search')}
           </button>
         </div>
       ) : (
@@ -158,18 +161,18 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Customer</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">NIC</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-700">Phone</th>
-              <th className="px-4 py-3 text-right font-semibold text-gray-700">Amount</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">Type</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('sales.col_date')}</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('sales.col_customer')}</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('sales.col_nic')}</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('sales.col_phone')}</th>
+              <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('sales.col_amount')}</th>
+              <th className="px-4 py-3 text-center font-semibold text-gray-700">{t('sales.col_type')}</th>
+              <th className="px-4 py-3 text-center font-semibold text-gray-700">{t('sales.col_status')}</th>
               {!['rep'].includes(userRole) && (
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Rep</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('sales.col_rep')}</th>
               )}
               {canApproveReject && (
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">Actions</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-700">{t('common.actions')}</th>
               )}
             </tr>
           </thead>
@@ -180,10 +183,7 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
                 month: 'short',
                 day: 'numeric',
               });
-              const amount = new Intl.NumberFormat('en-LK', {
-                style: 'currency',
-                currency: 'LKR',
-              }).format(sale.total_amount);
+              const amount = formatRs(sale.total_amount);
 
               return (
                 <tr key={sale.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
@@ -215,14 +215,14 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
                           disabled={actionLoading[sale.id]}
                           className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
                         >
-                          {actionLoading[sale.id] ? 'Processing...' : 'Approve'}
+                          {actionLoading[sale.id] ? t('common.processing') : t('sales.approve')}
                         </button>
                         <button
                           onClick={() => handleReject(sale.id)}
                           disabled={actionLoading[sale.id]}
                           className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
                         >
-                          {actionLoading[sale.id] ? 'Processing...' : 'Reject'}
+                          {actionLoading[sale.id] ? t('common.processing') : t('sales.reject')}
                         </button>
                       </div>
                     </td>
@@ -241,7 +241,7 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
 
       {/* Table footer - results count */}
       <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">
-        Showing {filteredSales.length} of {sales.length} sales
+        {t('sales.showing', { n: filteredSales.length, total: sales.length })}
       </div>
       </>
       )}
