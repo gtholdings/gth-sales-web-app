@@ -5,140 +5,114 @@
 
 ## What this is
 GTH Sales — a Next.js 15 PWA for Global Tech Holdings (Sri Lanka Dialog TV
-dealer). Field reps capture installment/full sales on phones; team leads,
-managers, finance, and admin manage them via a web dashboard. All free tiers ($0).
+dealer). Reps capture installment sales on phones; **supervisors**, managers,
+finance, and admin manage them via a web dashboard. Bilingual **English/Sinhala**.
+All free tiers ($0).
 
 **Stack:** Next.js 15.5.19 (App Router, JS not TS) · React 18 · Supabase
 (Postgres + Auth) · Tailwind · Resend (email) · Winston (logging) · exceljs +
-date-fns (reports). Deployed on **Netlify** (Node 22). PWA dep present
-(`@ducanh2912/next-pwa`) but **not wired into `next.config.mjs`** (inactive).
+date-fns (reports). Deployed on **Netlify** (Node 22). PWA dep present but not
+wired into `next.config.mjs` (inactive).
 
 ## Commands
-- `npm run dev` — dev server (http://localhost:3000)
-- `npm run build` — production build
-- `npm run clean` — delete `.next` + `node_modules/.cache` (fixes stale-cache errors)
-- `npm run dev:clean` — clean then dev
-- `npm run lint`
+- `npm run dev` / `npm run build`
+- `npm run clean` — delete `.next` + `node_modules/.cache` (fixes stale-cache `Cannot find module './NNN.js'`)
+- `npm run dev:clean` — clean then dev · `npm run lint`
 
 ## Architecture & hard rules
-- **No RLS.** All access control is in the API layer via `withAuth()` +
-  `scope-query.js`. The app uses the Supabase **secret key** (`supabaseAdmin`)
-  for ALL data access (bypasses RLS). If RLS gets enabled by accident, disable:
-  `ALTER TABLE <t> DISABLE ROW LEVEL SECURITY;`
-- **Supabase keys (2025+ format):** publishable (`sb_publishable_`, public, safe
-  in client) + secret (`sb_secret_`, server-only). No anon/service_role.
-- **`withAuth(roles, handler)`** ([src/lib/auth-middleware.js](src/lib/auth-middleware.js))
-  passes `(request, { user, supabaseAdmin, params })`. In Next 15 **`params` is a
-  Promise** — `const { id } = await params`. Roles: `'any'` allows any
-  authenticated active user; admin is NOT auto-bypassed in the API (list roles
-  explicitly). Logs request lifecycle + auth failures with reason.
-- **Scope** ([src/lib/scope-query.js](src/lib/scope-query.js)): `getVisibleRepIds`
-  → `'*'` for admin/finance/support, `[self]` rep, `[self,...reps]` team_lead,
-  `[self,...tls,...reps]` manager (walks `profiles.reports_to`). `scopeSalesQuery`
-  applies `.in('rep_id', ids)`.
-- **Login = mobile phone, not email** (`07XXXXXXXX`, strict). Implemented over
-  Supabase email+password using a **synthetic email** `<phone>@phone.gthsales.local`
-  ([src/lib/phone.js](src/lib/phone.js) `toAuthEmail`) because the native Supabase
-  phone provider is **disabled** (would need SMS). Real email is optional, stored
-  in `profiles.email` for comms only. Users created via `admin.createUser` with
-  `email_confirm: true` (bypasses the dashboard "Confirm email" toggle).
+- **No RLS.** All access control in the API via `withAuth()` + `scope-query.js`,
+  using the Supabase **secret key** (`supabaseAdmin`, bypasses RLS). Disable RLS if
+  accidentally enabled: `ALTER TABLE <t> DISABLE ROW LEVEL SECURITY;`
+- **Supabase keys (2025+):** publishable (`sb_publishable_`, public) + secret
+  (`sb_secret_`, server-only).
+- **`withAuth(roles, handler)`** → `(request, { user, supabaseAdmin, params })`;
+  `params` is a Promise in Next 15 (`await params`). `'any'` = any active user;
+  admin is NOT auto-bypassed in the API (list roles explicitly).
+- **Roles:** `rep, supervisor, manager, admin, finance, support` ("supervisor"
+  replaced the old "team_lead" everywhere incl. the DB enum). Hierarchy via
+  `profiles.reports_to`: rep → supervisor → manager → admin.
+- **Scope** ([scope-query.js](src/lib/scope-query.js)): `getVisibleRepIds` → `'*'`
+  for admin/finance/support, `[self]` rep, `[self,...reps]` supervisor,
+  `[self,...supervisors,...reps]` manager. `scopeSalesQuery` applies `.in('rep_id', ids)`.
+- **Login = mobile phone** (`07XXXXXXXX`, strict), implemented over Supabase
+  email+password via a synthetic email `<phone>@phone.gthsales.local`
+  ([phone.js](src/lib/phone.js) `toAuthEmail`) — native phone provider is disabled.
+  Email optional (comms only). Users created via `admin.createUser({email_confirm:true})`.
+- **Money:** always `Rs. 1,234.56` via [formatRs](src/lib/format.js). Never Intl currency.
+- **i18n:** [LanguageContext](src/contexts/LanguageContext.js) `useT()` → `t('key', {vars})`;
+  dictionaries [src/lib/i18n/{en,si}.js](src/lib/i18n/en.js); `<LanguageSwitcher/>` in the
+  Navbar + login/register. Persisted in localStorage, no locale routing. Noto Sans
+  Sinhala font in [layout.js](src/app/layout.js) + Tailwind `sans` stack. Dates/amounts
+  are NOT translated; Sinhala data entry works natively (Unicode TEXT columns).
 
-## Recurring gotchas (learned the hard way)
-- **API response keys must match what the client reads.** Several bugs came from
-  routes returning `{ data }` while the client read `{ sales }`/`{ users }`/
-  `{ team_leads }` etc. Convention: return a **named key** matching the consumer.
-- **Migrations run manually** in the Supabase SQL editor (no DDL via the client).
-  `003_installment_workflow.sql` has a **STEP 1 (`ALTER TYPE … ADD VALUE`) that
-  must run on its own first**, then STEP 2 — Postgres forbids using a new enum
-  value in the same transaction. When the editor prompts about RLS, click plain
-  **Run** (we don't use RLS).
-- **Netlify ETARGET on transitive deps:** floating ranges grab the newest version
-  and Netlify's npm mirror lags. Pinned via `overrides` in package.json:
-  `nanoid@3.3.12`, `@types/node@22.15.0` (jest-worker wants `@types/node@*`).
-  If a new one appears, pin it the same way to a slightly older, propagated version.
-- **`.next` corruption** (`Cannot find module './NNN.js'`): caused by mixing
-  `next build` and `next dev` in the same `.next`, interrupted builds, or two dev
-  servers. Fix: `npm run clean`. Don't run `build` then `dev` without cleaning.
-- **Netlify secret scan** flags `NEXT_PUBLIC_*` (inlined into client by design).
-  Whitelisted via `SECRETS_SCAN_OMIT_KEYS` in `netlify.toml`; the var should be
-  marked **non-secret** in Netlify and set for **all deploy contexts**.
+## Sale lifecycle (core business rules)
+- **Reps never collect money.** The rep records the sale + a **proposed plan**
+  (total, down payment, # installments, **proposed down-payment date**); status `pending`.
+- A **supervisor/manager** confirms a technician **installation date** (offline),
+  then on the approve screen enters it as the **down-payment date**, and may amend
+  the down-payment **date, amount, and # installments**. Approving = collecting the
+  down payment → generates the schedule. **Any change vs the rep's `proposed_*` is
+  logged as an `amend` event** (shown in the activity timeline).
+- **Schedule:** down payment (installment 0) is due on the down-payment date and is
+  created **claimed (awaiting_confirmation)** by the supervisor; installment k (1..N)
+  is due `addMonths(downPaymentDate, k)` — same day-of-month, **clamped to month-end**
+  when missing (Jan 31→Feb 28; May 31→Jun 30). See [installments.js](src/lib/installments.js).
+- **Finance** confirms each payment against the bank (claim → confirm/reject).
+- Every sale is an installment plan (no full-payment toggle in the form).
 
-## Data model (Supabase) — see supabase/migrations/00{1,2,3}
-- `profiles(id→auth.users, full_name, email?, phone UNIQUE NOT NULL, role
-  [rep|team_lead|manager|admin|finance|support], reports_to→profiles, status
-  [pending|active|inactive])`. Phone is the login id (002).
-- `dialog_tv_sales(rep_id, customer_*, payment_type [full|installment],
-  total_amount, num_installments, installment_amount, base_amount, first_due_date,
-  approved_by/at, status [pending|approved|rejected|completed], notes)`.
-- `installments(sale_id, installment_number (0 = base/down-payment, is_base=true),
-  amount, paid_amount, due_date, paid_date, status
-  [pending|awaiting_confirmation|paid|overdue|defaulted], claimed_by/at,
-  confirmed_by/at, finance_note)`. **Created at APPROVAL** (003 dropped the old
-  auto-create-on-insert triggers).
+## Data model — single consolidated [001_schema.sql](supabase/migrations/001_schema.sql)
+(Drops + recreates everything; replaced the old 001/002/003. Run once, plain "Run", no RLS.)
+- `profiles(id→auth.users, full_name, email?, phone NOT NULL UNIQUE ^07\d{8}$, role,
+  reports_to, status)`.
+- `dialog_tv_sales(rep_id, customer_*, payment_type, total_amount, base_amount,
+  num_installments, installment_amount, down_payment_date, proposed_base_amount,
+  proposed_num_installments, proposed_down_payment_date, status, approved_by/at, notes)`.
+- `installments(sale_id, installment_number (0=base, is_base), amount, paid_amount,
+  due_date, paid_date, status [pending|awaiting_confirmation|paid|overdue|defaulted],
+  claimed_by/at, confirmed_by/at, finance_note)`. Created at APPROVAL (no triggers).
 - `payment_events(sale_id, installment_id?, event_type
-  [comment|claim|confirm|reject|approve_sale|reject_sale|mark_defaulted],
-  author_id, note, amount, created_at)` — audit trail (author + timestamp).
-- `app_config(key, value jsonb)` — incl. `default_days_threshold` (30, overdue→
-  defaulted), `reminder_days_before` (7), `overdue_days_after` (1),
-  `notification_recipients_finance`.
-- `notification_log(...)` — email/notify audit, `channel` supports future SMS/WhatsApp.
-
-## Sale lifecycle (important business rule)
-- **Reps never collect money** (not even the down payment). The rep records the
-  sale + a **proposed installment plan** on the form (status `pending`).
-- A **team lead / manager** later visits the customer, signs the agreement, and
-  **collects the down payment** — that is the "approve" action, and it's when the
-  installment **schedule is generated**. The approval panel pre-fills the rep's
-  proposed values (number, down payment, first date) for confirm/adjust.
-- At approval, the base/down-payment row (installment 0) is created already
-  **claimed (awaiting_confirmation)**, dated to the collection day, since the
-  supervisor just collected it; **finance** then confirms it against the bank.
-- Every sale is an **installment plan** (no full-payment toggle in the new form).
+  [comment|claim|confirm|reject|approve_sale|reject_sale|mark_defaulted|amend],
+  author_id, note, amount, created_at)` — audit trail.
+- `app_config` keys: default_installment_count, installment_options,
+  notification_recipients_finance, default_days_threshold(30), reminder_days_before(7),
+  overdue_days_after(1). `notification_log` for email/notify audit.
 
 ## Feature areas
-- **New sale form** ([src/components/SalesForm.jsx](src/components/SalesForm.jsx)):
-  Customer section + Payment section. Payment auto-calc: Loan = Total − Down,
-  Monthly = Loan ÷ N, installment dates from an editable first date (monthly).
-  Submits the proposed plan to `POST /api/sales` (no schedule created there).
-- **Approval + installments:** [api/sales/[id]/approve](src/app/api/sales/[id]/approve/route.js)
-  takes installment count + base amount + first due date (pre-filled from the rep)
-  → generates base (row 0, auto-claimed) + monthly schedule (cents-exact split,
-  [src/lib/installments.js](src/lib/installments.js)).
-- **Payment workflow:** claim (any in-scope) → `awaiting_confirmation` → finance
-  confirm/reject. Routes under `api/sales/[id]/installments/[installmentId]/{claim,confirm}`
-  and `api/sales/[id]/comments`. Detail UI: [src/app/sales/[id]/page.js](src/app/sales/[id]/page.js).
-- **Reminders:** [src/lib/notify.js](src/lib/notify.js) (channel-agnostic, email via
-  Resend, SMS/WhatsApp stubs) + secured [api/cron/installment-reminders](src/app/api/cron/installment-reminders/route.js)
-  (`x-cron-secret` header == `CRON_SECRET`). Triggered daily by
-  `.github/workflows/installment-reminders.yml` (needs repo secrets `APP_URL`,
-  `CRON_SECRET`). Marks overdue/defaulted, emails staff (rep+TL+manager+finance).
-  Customer notices deferred. Dates computed in `Asia/Colombo` ([src/lib/datetime.js](src/lib/datetime.js)).
-- **Reports:** [src/lib/reports.js](src/lib/reports.js) (ranges MTD/last_month/last_90/
-  custom, month/week grouping, scope-intersecting filters) + [src/lib/excel.js](src/lib/excel.js)
-  (exceljs). Routes `api/sales/reports` (keeps legacy `stats` + new `report`),
-  `…/reports/defaulters`, `…/reports/export` (xlsx). UI: [src/app/reports/page.js](src/app/reports/page.js).
+- **New sale form** ([SalesForm.jsx](src/components/SalesForm.jsx)): Customer + Payment
+  sections, auto Loan/Monthly, schedule preview from the proposed down-payment date.
+- **Approval/amendment** ([approve route](src/app/api/sales/[id]/approve/route.js)) +
+  **detail page** ([sales/[id]](src/app/sales/[id]/page.js)): claim/confirm/comment +
+  activity timeline; routes `…/installments/[id]/{claim,confirm}`, `…/comments`, `GET …/[id]`.
+- **Reminders:** [notify.js](src/lib/notify.js) + secured [cron route](src/app/api/cron/installment-reminders/route.js)
+  (`x-cron-secret`), daily via `.github/workflows/installment-reminders.yml` (secrets `APP_URL`, `CRON_SECRET`).
+- **Reports:** [reports.js](src/lib/reports.js) + [excel.js](src/lib/excel.js); routes
+  `…/reports`, `…/reports/defaulters`, `…/reports/export`; filter dropdowns from
+  `/api/profiles/{supervisors,managers,reps}`.
 
-## Env vars (.env.local / Netlify)
+## Recurring gotchas
+- **API response keys must match the client** (return named keys: `{ sales }`,
+  `{ users }`, `{ supervisors }` …) — silent empty lists otherwise.
+- **Migration runs manually** in the Supabase SQL editor (no DDL via the client).
+  The consolidated `001_schema.sql` is a single Run (no ALTER-TYPE ordering issue).
+  Click plain **Run** (no RLS).
+- **Netlify ETARGET**: floating transitive versions lag Netlify's mirror — pinned via
+  `overrides`: `nanoid@3.3.12`, `@types/node@22.15.0`. Pin new offenders the same way.
+- **`.next` corruption**: `npm run clean` (don't run `build` then `dev` without cleaning).
+- **Netlify secret scan**: `NEXT_PUBLIC_*` whitelisted via `SECRETS_SCAN_OMIT_KEYS` in netlify.toml.
+
+## Env vars
 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public),
-`SUPABASE_SECRET_KEY` (secret), `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`,
-`CRON_SECRET` (must match GitHub secret), `LOG_LEVEL` (optional).
+`SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, `CRON_SECRET`, `LOG_LEVEL?`.
 
 ## Git / deploy
-- Personal GitHub: `git@github-personal:gtholdings/gth-sales-web-app.git`
-  (SSH host alias `github-personal` → personal key; repo-local identity
-  `supunbula <betel123@gmail.com>`). Commit on `main`, push when asked.
-- Existing admin account migrated to phone login `0768971679`.
+- `git@github-personal:gtholdings/gth-sales-web-app.git` (SSH alias `github-personal`
+  → personal key; repo-local identity `supunbula <betel123@gmail.com>`). Commit on `main`.
+- Admin account: phone `0768971679`.
 
 ## Status / pending
-- ✅ **Migrations 001–003 applied** to Supabase (RLS off). All three schema
-  migrations are live, including the installment workflow + `payment_events`.
-- ✅ **Netlify deploy succeeded** — env vars set; site builds and deploys green.
-- ⏳ **Not yet verified end-to-end against the live DB.** The installment/
-  payment/reports features are built, build-clean, and the schema is now applied,
-  but the full workflow (approve→schedule→claim→finance-confirm→reminders→reports)
-  hasn't been exercised against production data yet. Ask Claude to run the E2E
-  verification when ready.
-- ⏳ **Reminder cron:** confirm GitHub repo secrets `APP_URL` + `CRON_SECRET` are
-  set (matching Netlify's `CRON_SECRET`) and the daily workflow runs.
-- Known transitive audit note: 2 moderate from `uuid` under exceljs (not exploitable here).
-```
+- ✅ Phone login + installment workflow + reminders + reports deployed earlier (migrations 1–3).
+- 🔄 **This change (supervisor rename + installation-date flow + amendments + i18n) needs the
+  consolidated `001_schema.sql` re-run** (drops & recreates — dev DB wipe). Then clear stale
+  `auth.users` and re-seed the admin (`0768971679`, role admin/active).
+- ⏳ E2E verification of the amendment flow + clamp dates against the live DB still pending.
+- See [requirements.md](requirements.md) for the consolidated business requirements (SRS).
