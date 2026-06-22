@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds, scopeSalesQuery } from '@/lib/scope-query';
+import { formatRs } from '@/lib/format';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
@@ -207,6 +208,19 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
         { status: 500 }
       );
     }
+
+    // Record the rep's original proposal as the FIRST activity entry so the
+    // original terms stay visible to everyone (even after a supervisor amends).
+    const proposalNote = isInstallment
+      ? `Original proposal: ${n} installment(s) · down payment ${formatRs(down)} · down payment date ${down_payment_date}`
+      : `Original proposal: full payment ${formatRs(total_amount)}`;
+    await supabaseAdmin.from('payment_events').insert({
+      sale_id: sale.id,
+      event_type: 'comment',
+      author_id: user.id,
+      note: proposalNote,
+      amount: isInstallment ? down : total_amount,
+    });
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {

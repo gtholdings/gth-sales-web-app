@@ -103,6 +103,7 @@ const si = {
   'sales.col_rep': 'නියෝජිත',
   'sales.approve': 'අනුමත කරන්න',
   'sales.reject': 'ප්‍රතික්ෂේප කරන්න',
+  'sales.review': 'සමාලෝචනය',
 
   // sale status badges
   'sale_status.pending': 'පොරොත්තුවෙන්',
@@ -159,6 +160,9 @@ const si = {
   'detail.num_installments': 'වාරික ගණන',
   'detail.down_payment_amount': 'ආරම්භක ගෙවීම (රු.)',
   'detail.down_payment_date': 'ස්ථාපන / ආරම්භක ගෙවීම් දිනය',
+  'detail.loan_amount': 'ණය මුදල',
+  'detail.monthly': 'මාසික වාරිකය',
+  'detail.schedule_preview': 'වාරික කාලසටහන',
   'detail.approve': 'අනුමත කරන්න',
   'detail.reject': 'ප්‍රතික්ෂේප කරන්න',
   'detail.payments': 'ගෙවීම්',

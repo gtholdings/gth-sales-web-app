@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { formatRs } from '@/lib/format';
 
@@ -36,11 +35,9 @@ const PaymentBadge = ({ type }) => {
   );
 };
 
-export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading = false }) => {
-  const { token } = useAuth();
+export const SalesTable = ({ sales = [], userRole, loading = false }) => {
   const { t } = useT();
   const [searchTerm, setSearchTerm] = useState('');
-  const [actionLoading, setActionLoading] = useState({});
 
   const filteredSales = useMemo(() => {
     if (!searchTerm.trim()) return sales;
@@ -52,62 +49,8 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
     );
   }, [sales, searchTerm]);
 
-  const handleApprove = async (saleId) => {
-    try {
-      setActionLoading((prev) => ({ ...prev, [saleId]: true }));
-
-      const response = await fetch(`/api/sales/${saleId}/approve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'approve' }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to approve sale');
-      }
-
-      if (onApprove) {
-        onApprove(saleId);
-      }
-    } catch (error) {
-      console.error('Approve error:', error);
-      alert('Failed to approve sale. Please try again.');
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [saleId]: false }));
-    }
-  };
-
-  const handleReject = async (saleId) => {
-    try {
-      setActionLoading((prev) => ({ ...prev, [saleId]: true }));
-
-      const response = await fetch(`/api/sales/${saleId}/approve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'reject' }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to reject sale');
-      }
-
-      if (onReject) {
-        onReject(saleId);
-      }
-    } catch (error) {
-      console.error('Reject error:', error);
-      alert('Failed to reject sale. Please try again.');
-    } finally {
-      setActionLoading((prev) => ({ ...prev, [saleId]: false }));
-    }
-  };
-
+  // Approval/rejection happens on the sale detail page (it needs installment
+  // configuration), so the row action just opens that page.
   const canApproveReject = ['supervisor', 'manager', 'admin'].includes(userRole);
 
   if (loading) {
@@ -207,29 +150,18 @@ export const SalesTable = ({ sales = [], userRole, onApprove, onReject, loading 
                       {sale.rep_name || 'N/A'}
                     </td>
                   )}
-                  {canApproveReject && sale.status === 'pending' && (
+                  {canApproveReject && (
                     <td className="px-4 py-3 text-center">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => handleApprove(sale.id)}
-                          disabled={actionLoading[sale.id]}
-                          className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
+                      {sale.status === 'pending' ? (
+                        <Link
+                          href={`/sales/${sale.id}`}
+                          className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
                         >
-                          {actionLoading[sale.id] ? t('common.processing') : t('sales.approve')}
-                        </button>
-                        <button
-                          onClick={() => handleReject(sale.id)}
-                          disabled={actionLoading[sale.id]}
-                          className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3 py-1 rounded text-xs font-medium transition-colors"
-                        >
-                          {actionLoading[sale.id] ? t('common.processing') : t('sales.reject')}
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                  {canApproveReject && sale.status !== 'pending' && (
-                    <td className="px-4 py-3 text-center text-gray-500 text-xs">
-                      —
+                          {t('sales.review')}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-500 text-xs">—</span>
+                      )}
                     </td>
                   )}
                 </tr>

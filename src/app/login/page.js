@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { landingPathForRole } from '@/lib/nav';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,10 +16,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Redirect if already logged in
+  // Redirect once authenticated — reps land on the new-sale form, others on the dashboard.
   useEffect(() => {
     if (!loading && user) {
-      router.push('/dashboard');
+      router.push(landingPathForRole(user.role));
     }
   }, [user, loading, router]);
 
@@ -29,11 +30,10 @@ export default function LoginPage() {
 
     try {
       const result = await login(phone, password);
-      if (result.success) {
-        router.push('/dashboard');
-      } else {
+      if (!result.success) {
         setError(result.error || 'Login failed');
       }
+      // On success, the redirect effect routes by role (rep → new sale).
     } catch (err) {
       setError('An unexpected error occurred');
       console.error('Login error:', err);
