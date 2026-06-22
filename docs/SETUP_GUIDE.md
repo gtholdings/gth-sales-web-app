@@ -4,7 +4,7 @@
 
 A single Next.js PWA deployed on Netlify that serves:
 - **Mobile app** for reps (install to home screen via Chrome/Safari)
-- **Web dashboard** for managers, admin, and finance (Chrome)
+- **Web dashboard** for managers, admin, and credit officers (Chrome)
 - **API backend** as Next.js API routes (serverless on Netlify)
 - **Database + Auth** on Supabase (Postgres; auth via Supabase Auth)
 - **Email notifications** via Resend (installment reminders + overdue notices)
@@ -55,36 +55,27 @@ If you ever need a **direct Postgres connection** (Prisma, CLI tools), use the *
 
 ---
 
-## Step 2: Run the Database Migrations
+## Step 2: Run the Database Schema
 
-Run the migration files in **order** in the Supabase **SQL Editor** (left sidebar → New query → paste → Run).
+There is a **single consolidated** migration, `supabase/migrations/001_schema.sql`.
 
-1. **`supabase/migrations/001_schema.sql`** — base tables, indexes, triggers.
-2. **`supabase/migrations/002_phone_login.sql`** — makes **phone** the unique,
-   required login identifier (`07XXXXXXXX`) and email optional.
-   - ⚠️ Prerequisite: every existing `profiles` row must already have a valid
-     `07XXXXXXXX` phone. On a fresh project there are no rows, so it just applies.
-3. **`supabase/migrations/003_installment_workflow.sql`** — installment
-   scheduling, payment claim/confirm workflow, audit trail, reminder config.
-   - ⚠️ **Run order matters.** This file has a **STEP 1** (two `ALTER TYPE … ADD VALUE`
-     statements) that **must be run on its own first** — Postgres forbids using a
-     new enum value in the same transaction that adds it. Select only the STEP 1
-     lines and Run, then select and Run the rest (STEP 2). The file is commented
-     to make this clear.
-   - When the SQL Editor asks about RLS, click plain **"Run"** — this app does
-     **not** use RLS (access is controlled in the API via the secret key). If you
-     accidentally enable it, disable with `ALTER TABLE <name> DISABLE ROW LEVEL SECURITY;`.
+1. Supabase → **SQL Editor** → **New query**.
+2. Paste the **entire** contents of `supabase/migrations/001_schema.sql` and click **Run**.
+   - It **drops and recreates** everything, so it's safe to re-run on a dev project (it wipes data).
+   - When the SQL Editor asks about RLS, click plain **"Run"** — this app does **not** use RLS
+     (access is controlled in the API via the secret key). If you accidentally enable it, disable
+     with `ALTER TABLE <name> DISABLE ROW LEVEL SECURITY;`.
+   - Re-running drops `profiles` but not Supabase's `auth.users`. After a reset, clear stale
+     auth users (Authentication → Users → delete, or `DELETE FROM auth.users;`) so phones can
+     re-register, then re-seed the admin (Step 7).
 
-### Verify tables were created
+### Verify
 
-Go to **Table Editor**. You should see:
-- `profiles`, `dialog_tv_sales`, `installments`, `notification_log`, `app_config`
-- `payment_events` (added in 003 — the audit trail)
-
-Quick sanity check that 003's enum step applied (SQL Editor):
+Go to **Table Editor**. You should see: `profiles`, `dialog_tv_sales`, `installments`,
+`payment_events`, `notification_log`, `app_config`. Quick enum sanity check (SQL Editor):
 ```sql
-SELECT unnest(enum_range(NULL::installment_status));
--- expect: pending, paid, overdue, awaiting_confirmation, defaulted
+SELECT unnest(enum_range(NULL::user_role));
+-- expect: rep, supervisor, manager, admin, credit_officer
 ```
 
 ---
@@ -205,10 +196,10 @@ and is protected by a shared secret. A scheduled GitHub Actions workflow
 
 ## Step 9: Onboard Users
 
-### Managers / Team Leads / Finance
+### Managers / Supervisors / Credit Officers
 1. Share the app URL; they register with their **mobile number** and role.
 2. Admin approves them in the **Admin** panel — and can set their role and
-   reporting supervisor (team lead for reps, manager for team leads) at approval time.
+   reporting line (a supervisor for reps, a manager for supervisors) at approval time.
 
 ### Reps (Mobile PWA Installation)
 **Android (Chrome):** open the URL → three-dot menu (⋮) → **Add to Home screen** → **Add**.
@@ -220,16 +211,16 @@ and is protected by a shared secret. A scheduled GitHub Actions workflow
 
 ## Day-to-day flow (what the app now does)
 
-1. **Rep** records a Dialog TV sale (status `pending`).
-2. **Team Lead / Manager / Admin** opens the sale and **approves** it — entering
-   the number of installments, the base/down-payment already paid, and the first
-   due date. The app generates the down-payment + a **monthly** installment schedule.
-3. Anyone in scope can **mark a payment paid**; it goes to **Finance** to confirm
+1. **Rep** records a Dialog TV sale + a *proposed* plan (status `pending`); collects no money.
+2. **Supervisor / Manager** opens the pending sale (Sales → **Review**), enters the actual
+   **installation / down-payment date**, may amend the down-payment amount and installment
+   count (changes are logged), and **approves** — generating the **monthly** schedule.
+3. Anyone in scope can **mark a payment paid**; it goes to the **credit officer** to confirm
    against the bank (or reject). Every action is logged with author + timestamp.
 4. The daily cron emails **7-day reminders** and **1-day overdue notices** to the
-   rep + team lead + manager + finance, and flags overdue/defaulted installments.
+   rep + supervisor + manager + credit officer, and flags overdue/defaulted installments.
 5. **Reports** (Reports tab): filter by range (MTD / last month / last 90 / custom),
-   group by month/week, filter by manager/team-lead/rep; see paid / pending /
+   group by month/week, filter by manager/supervisor/rep; see paid / pending /
    defaulted totals and a **defaulter list**, with **Excel export**. Defaulted
    amounts are attributed to the rep (threshold configurable in admin, default 30 days).
 
@@ -259,7 +250,7 @@ global-tech-holdings/
 │   │       ├── sales/reports/  ·  sales/reports/defaulters/  ·  sales/reports/export/ (xlsx)
 │   │       ├── cron/installment-reminders/        # secured daily job
 │   │       ├── admin/users/ · admin/users/pending/ · admin/users/[id]/ · admin/config/
-│   │       ├── profiles/{managers,team-leads,reps}/   # filter/dropdown lists
+│   │       ├── profiles/{supervisors,managers,reps}/  # filter/dropdown lists
 │   │       └── profile/ · config/
 │   ├── lib/
 │   │   ├── supabase.js · auth-middleware.js · scope-query.js · logger.js
@@ -270,7 +261,7 @@ global-tech-holdings/
 │   ├── components/  Navbar · SalesForm · SalesTable · StatsCards · ProtectedRoute · InstallmentStatusBadge
 │   └── contexts/AuthContext.js
 ├── supabase/migrations/
-│   ├── 001_schema.sql · 002_phone_login.sql · 003_installment_workflow.sql
+│   └── 001_schema.sql                    # single consolidated schema (no RLS)
 └── docs/  ARCHITECTURE.md · SETUP_GUIDE.md
 ```
 
@@ -296,9 +287,10 @@ Log in with the **mobile number** (`07XXXXXXXX`), not email. Check the server lo
 ### "Account not active" after login
 Admin must approve the account (Admin panel) or set `status = 'active'` in Supabase.
 
-### Migration 003 errored on the enum
-You ran the whole file at once. Run only the two `ALTER TYPE … ADD VALUE` lines
-first, then run the rest. See Step 2.
+### Login fails right after a schema re-run
+`001_schema.sql` drops `profiles` but not Supabase `auth.users`. Clear stale auth users
+(Authentication → Users, or `DELETE FROM auth.users;`) so phones can re-register, then
+re-seed the admin (Step 7).
 
 ### Reminders not sending
 Confirm `CRON_SECRET` matches in Netlify **and** GitHub, the site was redeployed,

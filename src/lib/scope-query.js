@@ -10,10 +10,10 @@ import logger from './logger';
 /**
  * Get list of rep IDs visible to the current user based on their role.
  *
- * - admin/finance/support → '*' (can see all)
+ * - admin/credit_officer → '*' (can see all)
  * - rep → [user.id] (can only see their own)
  * - supervisor → [user.id, ...reps reporting to them]
- * - manager → [user.id, ...supervisors reporting to them, ...reps under those TLs]
+ * - manager → [user.id, ...supervisors reporting to them, ...reps under those supervisors]
  *
  * @param {Object} user - User object with id and role
  * @param {*} supabaseAdmin - Supabase admin client
@@ -22,8 +22,8 @@ import logger from './logger';
 export const getVisibleRepIds = async (user, supabaseAdmin) => {
   const { id: userId, role } = user;
 
-  // Admin, finance, support can see all reps
-  if (['admin', 'finance', 'support'].includes(role)) {
+  // Admin and credit officers can see all reps
+  if (['admin', 'credit_officer'].includes(role)) {
     return '*';
   }
 

@@ -34,12 +34,11 @@ DROP TYPE IF EXISTS user_role CASCADE;
 -- 1. ENUM TYPES
 -- ──────────────────────────────────────────────
 CREATE TYPE user_role AS ENUM (
-  'rep',          -- Sales Representative (field agent)
-  'supervisor',   -- Supervisor (supervises reps; was "team_lead")
-  'manager',      -- Manager (supervises supervisors)
-  'admin',        -- Admin (maps to MD)
-  'finance',      -- Finance team
-  'support'       -- Customer support
+  'rep',            -- Sales Representative (field agent)
+  'supervisor',     -- Supervisor (supervises reps; was "team_lead")
+  'manager',        -- Manager (supervises supervisors)
+  'admin',          -- Admin (maps to MD)
+  'credit_officer'  -- Credit Officer (confirms payments; was "finance")
 );
 
 CREATE TYPE user_status AS ENUM ('pending', 'active', 'inactive');

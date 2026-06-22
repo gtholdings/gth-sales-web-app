@@ -16,7 +16,7 @@ import logger from '@/lib/logger';
  * Query params (for `report`): range=MTD|last_month|last_90|custom (default MTD),
  *   from/to when custom, groupBy=month|week, one of managerId|supervisorId|repId.
  */
-export const GET = withAuth(['supervisor', 'manager', 'admin', 'finance'], async (request, { user, supabaseAdmin }) => {
+export const GET = withAuth(['supervisor', 'manager', 'admin', 'credit_officer'], async (request, { user, supabaseAdmin }) => {
   try {
     // ---- legacy all-time stats (unchanged shape; powers the dashboard) ----
     const visibleRepIds = await getVisibleRepIds(user, supabaseAdmin);

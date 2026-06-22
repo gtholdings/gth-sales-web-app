@@ -10,7 +10,7 @@ import logger from '@/lib/logger';
  * Full sale detail: the sale, its payable rows (base + installment schedule)
  * with display status + claimer/confirmer names, and the audit event timeline.
  * Gated to any in-scope user (rep on own sales, TL/manager within their tree,
- * admin/finance/support globally).
+ * admin/credit_officer globally).
  */
 export const GET = withAuth(['any'], async (request, { user, supabaseAdmin, params }) => {
   try {

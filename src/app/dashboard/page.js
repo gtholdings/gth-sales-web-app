@@ -39,8 +39,8 @@ export default function DashboardPage() {
           setError('Failed to load sales data');
         }
 
-        // Fetch stats for manager/admin/finance roles
-        if (['manager', 'admin', 'finance'].includes(user?.role)) {
+        // Fetch stats for manager/admin/credit_officer roles
+        if (['manager', 'admin', 'credit_officer'].includes(user?.role)) {
           const reportsResponse = await fetch('/api/sales/reports', {
             headers: {
               'Authorization': `Bearer ${token}`,

@@ -16,7 +16,7 @@ export async function buildSalesWorkbook(report) {
     { header: 'Confirmed Total', key: 'confirmed_sale_total', width: 18, style: { numFmt: MONEY } },
     { header: 'Cumulative Confirmed', key: 'cumulative_confirmed_total', width: 22, style: { numFmt: MONEY } },
     { header: 'Paid', key: 'amount_paid', width: 16, style: { numFmt: MONEY } },
-    { header: 'Awaiting Finance', key: 'amount_awaiting', width: 16, style: { numFmt: MONEY } },
+    { header: 'Awaiting Credit Officer', key: 'amount_awaiting', width: 18, style: { numFmt: MONEY } },
     { header: 'Pending', key: 'amount_pending', width: 16, style: { numFmt: MONEY } },
     { header: 'Defaulted', key: 'amount_defaulted', width: 16, style: { numFmt: MONEY } },
   ];

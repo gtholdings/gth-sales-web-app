@@ -85,7 +85,7 @@ export async function resolveFinanceRecipients(supabaseAdmin) {
     .from('app_config').select('value').eq('key', 'notification_recipients_finance').single();
   const ids = Array.isArray(cfg?.value) ? cfg.value : [];
   const q = supabaseAdmin.from('profiles').select('id, full_name, email, role, status').eq('status', 'active');
-  const { data } = ids.length ? await q.in('id', ids) : await q.eq('role', 'finance');
+  const { data } = ids.length ? await q.in('id', ids) : await q.eq('role', 'credit_officer');
   return data || [];
 }
 

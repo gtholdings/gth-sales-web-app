@@ -8,7 +8,7 @@ import logger from '@/lib/logger';
  * Per-rep defaulted amount (rep's responsibility), for the requested range/scope.
  * Gated to admin / supervisor / manager / finance.
  */
-export const GET = withAuth(['admin', 'supervisor', 'manager', 'finance'], async (request, { user, supabaseAdmin }) => {
+export const GET = withAuth(['admin', 'supervisor', 'manager', 'credit_officer'], async (request, { user, supabaseAdmin }) => {
   try {
     const params = parseReportParams(request);
     let range;

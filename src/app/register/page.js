@@ -299,8 +299,7 @@ export default function RegisterPage() {
                 <option value="rep">{t('role.rep')}</option>
                 <option value="supervisor">{t('role.supervisor')}</option>
                 <option value="manager">{t('role.manager')}</option>
-                <option value="finance">{t('role.finance')}</option>
-                <option value="support">{t('role.support')}</option>
+                <option value="credit_officer">{t('role.credit_officer')}</option>
               </select>
             </div>
 

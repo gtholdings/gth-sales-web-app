@@ -14,7 +14,7 @@ import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
  *   phone: string (required) - 07 followed by 8 digits (e.g. 0771234567)
  *   password: string (required)
  *   full_name: string (required)
- *   role: string (required) - 'rep', 'supervisor', 'manager', 'admin', 'finance', 'support'
+ *   role: string (required) - 'rep', 'supervisor', 'manager', 'admin', 'credit_officer'
  *   email: string (optional) - for communications only
  *   reports_to: string (optional) - UUID of reporting manager/supervisor
  *   supervisor_id / manager_id: string (optional) - aliases for reports_to

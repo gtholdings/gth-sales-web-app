@@ -63,7 +63,7 @@ function SaleDetail() {
   useEffect(() => { load(); }, [load]);
 
   const canApprove = ['supervisor', 'manager', 'admin'].includes(user?.role);
-  const canConfirm = ['finance', 'admin'].includes(user?.role);
+  const canConfirm = ['credit_officer', 'admin'].includes(user?.role);
 
   const act = async (fn) => {
     setBusy(true);

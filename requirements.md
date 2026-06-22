@@ -14,7 +14,7 @@ business needs a single web application that:
 - lets reps capture sales and the proposed payment plan at the customer site (mobile);
 - routes each sale through an approval + physical-installation + down-payment-collection
   workflow handled by supervisors/managers;
-- tracks every installment payment with a finance confirmation step and a full audit trail;
+- tracks every installment payment with a credit-officer confirmation step and a full audit trail;
 - proactively reminds staff of upcoming and overdue payments;
 - gives management reporting (including defaulter tracking) with Excel export;
 - operates bilingually in **English and Sinhala**.
@@ -30,8 +30,7 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 | **Supervisor** | Approve sales, confirm installation date, collect down payment, sign agreement, amend the plan. | Own + their reps |
 | **Manager** | Everything a supervisor does, across their supervisors. | Own + supervisors + their reps |
 | **Admin (MD)** | Full access; user management; configuration. | All |
-| **Finance** | Confirm payments against the bank; view reports. | All |
-| **Support** | Read-only support. | All |
+| **Credit Officer** | Confirm payments against the bank; view reports. | All |
 
 (Note: "Supervisor" is the canonical term throughout the system, including the database.)
 
@@ -83,9 +82,9 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 ## 7. Payment Tracking, Confirmation & Audit
 - **R-PAY-1** Each payable (the down payment and every installment) has a state:
   Pending → Awaiting Confirmation → Paid; plus Overdue and Defaulted (derived from due date).
-- **R-PAY-2** Any in-scope user can **mark a payment as paid** (a claim); it then awaits finance.
+- **R-PAY-2** Any in-scope user can **mark a payment as paid** (a claim); it then awaits the credit officer.
   The down payment is auto-claimed by the supervisor at approval.
-- **R-PAY-3** **Finance confirms** a claimed payment after verifying the bank deposit, or
+- **R-PAY-3** **The credit officer confirms** a claimed payment after verifying the bank deposit, or
   **rejects** it back to unpaid.
 - **R-PAY-4** Users can add **comments** to a sale or a specific payment.
 - **R-PAY-5** Every action (comment, claim, confirm, reject, approval, amendment) is an
@@ -99,7 +98,7 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-NOTIF-1** A daily job sends an **upcoming reminder 7 days before** a due date and an
   **overdue notice 1 day after** an unpaid due date.
 - **R-NOTIF-2** Recipients are the relevant **staff**: the rep, their supervisor, their
-  manager, and finance. (Customer notifications are deferred; the notification layer is
+  manager, and the credit officer. (Customer notifications are deferred; the notification layer is
   channel-agnostic with a clear extension point for SMS/WhatsApp.)
 - **R-NOTIF-3** Reminder thresholds (days-before, days-after, default threshold) are configurable.
 - **R-NOTIF-4** Sends are logged and de-duplicated (idempotent per day) for reliability.
@@ -112,13 +111,13 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-RPT-3** Metrics per period: number of sales, cumulative confirmed sales total, amount
   paid, amount pending, and amount defaulted.
 - **R-RPT-4** A **defaulter report** lists each rep with their defaulted count and outstanding
-  defaulted amount (so finance can action salary deductions in a separate process).
+  defaulted amount (so the credit officer can action salary deductions in a separate process).
 - **R-RPT-5** Reports are **exportable to Excel (.xlsx)**.
 
 ## 10. Administration
 - **R-ADM-1** Admin approves/activates pending users and sets role + reporting line.
 - **R-ADM-2** Admin can manage configuration values (installment options, thresholds,
-  finance notification recipients).
+  credit-officer notification recipients).
 
 ## 11. Internationalisation
 - **R-I18N-1** The entire UI (labels, buttons, messages) is available in **English and Sinhala**.

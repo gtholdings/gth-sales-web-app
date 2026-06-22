@@ -25,7 +25,7 @@ export const Navbar = () => {
       items.push({ label: t('nav.new_sale'), href: '/sales/new' });
     }
 
-    if (['supervisor', 'manager', 'admin', 'finance'].includes(user.role)) {
+    if (['supervisor', 'manager', 'admin', 'credit_officer'].includes(user.role)) {
       items.push({ label: t('nav.reports'), href: '/reports' });
     }
 

@@ -244,7 +244,7 @@ function ReportsView() {
 
 export default function ReportsPage() {
   return (
-    <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin', 'finance']}>
+    <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin', 'credit_officer']}>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <ReportsView />

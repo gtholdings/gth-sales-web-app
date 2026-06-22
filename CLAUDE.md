@@ -6,7 +6,7 @@
 ## What this is
 GTH Sales — a Next.js 15 PWA for Global Tech Holdings (Sri Lanka Dialog TV
 dealer). Reps capture installment sales on phones; **supervisors**, managers,
-finance, and admin manage them via a web dashboard. Bilingual **English/Sinhala**.
+credit officers, and admin manage them via a web dashboard. Bilingual **English/Sinhala**.
 All free tiers ($0).
 
 **Stack:** Next.js 15.5.19 (App Router, JS not TS) · React 18 · Supabase
@@ -34,11 +34,11 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **`withAuth(roles, handler)`** → `(request, { user, supabaseAdmin, params })`;
   `params` is a Promise in Next 15 (`await params`). `'any'` = any active user;
   admin is NOT auto-bypassed in the API (list roles explicitly).
-- **Roles:** `rep, supervisor, manager, admin, finance, support` ("supervisor"
+- **Roles:** `rep, supervisor, manager, admin, credit_officer` ("supervisor"
   replaced the old "team_lead" everywhere incl. the DB enum). Hierarchy via
   `profiles.reports_to`: rep → supervisor → manager → admin.
 - **Scope** ([scope-query.js](src/lib/scope-query.js)): `getVisibleRepIds` → `'*'`
-  for admin/finance/support, `[self]` rep, `[self,...reps]` supervisor,
+  for admin/credit_officer, `[self]` rep, `[self,...reps]` supervisor,
   `[self,...supervisors,...reps]` manager. `scopeSalesQuery` applies `.in('rep_id', ids)`.
 - **Login = mobile phone** (`07XXXXXXXX`, strict), implemented over Supabase
   email+password via a synthetic email `<phone>@phone.gthsales.local`
@@ -66,7 +66,7 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   created **claimed (awaiting_confirmation)** by the supervisor; installment k (1..N)
   is due `addMonths(downPaymentDate, k)` — same day-of-month, **clamped to month-end**
   when missing (Jan 31→Feb 28; May 31→Jun 30). See [installments.js](src/lib/installments.js).
-- **Finance** confirms each payment against the bank (claim → confirm/reject).
+- **The credit officer** confirms each payment against the bank (claim → confirm/reject).
 - Every sale is an installment plan (no full-payment toggle in the form).
 
 ## Data model — single consolidated [001_schema.sql](supabase/migrations/001_schema.sql)
@@ -160,7 +160,7 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 - ✅ Consolidated `001_schema.sql` applied; `auth.users` cleared for a clean reset.
 - ✅ **E2E verified against the live DB** (21/21): phone login (all roles), rep proposal →
   supervisor amend+approve (amend event captures old→new), date clamp (Jan 31 → Feb 28 /
-  Mar 31 / Apr 30), cents-exact split, down-payment auto-claim → finance confirm,
+  Mar 31 / Apr 30), cents-exact split, down-payment auto-claim → credit-officer confirm,
   installment claim→confirm, detail, reports, defaulters. Sinhala data entry persisted fine.
 - ✅ **Nightly DB backup live & verified** — `db-backup.yml` run green; first dump
   (`daily/gthsales-*.sql.gz`, 41 tables incl. `auth.*`) committed to the backups repo.
