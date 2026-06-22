@@ -10,6 +10,19 @@ const notoSinhala = Noto_Sans_Sinhala({ subsets: ['sinhala'], variable: '--font-
 export const metadata = {
   title: 'GTH Sales',
   description: 'Global Tech Holdings Sales Management',
+  // Linking the manifest is what makes the app installable (standalone, no URL
+  // bar) and gives Android a real home-screen icon instead of a grey bookmark.
+  manifest: '/manifest.json',
+  applicationName: 'GTH Sales',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GTH Sales' },
+  icons: {
+    icon: [
+      { url: '/icons/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/icons/apple-touch-icon.png',
+  },
 };
 
 export const viewport = {
@@ -23,10 +36,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        {/* Apple PWA tags + manifest link are emitted from the metadata export
+            above; only the generic flag (not covered there) stays here. */}
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="GTH Sales" />
       </head>
       <body className={`${inter.variable} ${notoSinhala.variable} font-sans`}>
         <LanguageProvider>
