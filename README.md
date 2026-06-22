@@ -1,14 +1,14 @@
 # GTH Sales — Global Tech Holdings Sales Management
 
 A Progressive Web App for managing field **Dialog TV installment sales**. Reps capture
-sales on their phones; **supervisors, managers, finance, and admin** run the approval,
+sales on their phones; **supervisors, managers, credit officers, and admin** run the approval,
 down-payment collection, payment-confirmation, and reporting workflow via the web dashboard.
 
 Built with **Next.js 15**, Supabase (Postgres + Auth), Tailwind CSS, Resend, exceljs +
 date-fns. Deployed on Netlify. **English/Sinhala** bilingual. All free tiers — $0/month.
 
 Highlights: **mobile-number login** (no email needed), installment scheduling with a
-down-payment/installation-date workflow, a payment **claim → finance-confirm** flow with a
+down-payment/installation-date workflow, a payment **claim → credit-officer-confirm** flow with a
 full audit trail, email reminders, reports with Excel export, and amounts always in **Rs.**
 
 ## Prerequisites
@@ -81,7 +81,7 @@ npm run dev   # http://localhost:3000
 3. **Supervisor/Manager** opens the pending sale (Sales → **Review**), enters the actual
    **installation / down-payment date**, optionally amends the amount/count (changes are
    logged), and **approves** — this generates the installment schedule.
-4. **Finance** confirms the down payment and each installment against the bank.
+4. **The credit officer** confirms the down payment and each installment against the bank.
 5. **Reports** show paid/pending/defaulted totals, a defaulter list, and Excel export.
 
 Toggle **English/සිංහල** any time from the dropdown in the top bar.
@@ -150,5 +150,4 @@ See [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) for Netlify + Supabase + the remi
 | **supervisor** | Confirm installation date, collect down payment, approve/amend sales | Own + their reps |
 | **manager** | Everything a supervisor does, across their supervisors + reports | Own + supervisors + their reps |
 | **admin** (MD) | Everything + user management + config | All |
-| **finance** | Confirm payments; reports | All |
-| **support** | Read-only | All |
+| **credit_officer** | Confirm payments; reports | All |

@@ -13,7 +13,7 @@ import logger from '@/lib/logger';
  * reject  -> status back to 'pending', claim cleared, finance_note set.
  * Finance/admin act globally (no rep-scope restriction).
  */
-export const POST = withAuth(['finance', 'admin'], async (request, { user, supabaseAdmin, params }) => {
+export const POST = withAuth(['credit_officer', 'admin'], async (request, { user, supabaseAdmin, params }) => {
   try {
     const { id: saleId, installmentId } = await params;
     const body = await request.json().catch(() => ({}));

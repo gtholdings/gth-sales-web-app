@@ -35,8 +35,7 @@ const si = {
   'role.supervisor': 'අධීක්ෂක',
   'role.manager': 'කළමනාකරු',
   'role.admin': 'පරිපාලක',
-  'role.finance': 'මූල්‍ය',
-  'role.support': 'සහාය',
+  'role.credit_officer': 'ණය නිලධාරී',
 
   // login
   'login.brand': 'GTH Sales',
@@ -115,7 +114,7 @@ const si = {
 
   // installment status badges
   'inst.pending': 'පොරොත්තුවෙන්',
-  'inst.awaiting_confirmation': 'මූල්‍ය තහවුරුව බලාපොරොත්තුවෙන්',
+  'inst.awaiting_confirmation': 'ණය නිලධාරී තහවුරුව බලාපොරොත්තුවෙන්',
   'inst.paid': 'ගෙවා ඇත',
   'inst.overdue': 'කල් ඉකුත්',
   'inst.defaulted': 'පැහැර හැර ඇත',

@@ -10,7 +10,7 @@ const STYLES = {
 
 const LABELS = {
   pending: 'Pending',
-  awaiting_confirmation: 'Awaiting Finance',
+  awaiting_confirmation: 'Awaiting Credit Officer',
   paid: 'Paid',
   overdue: 'Overdue',
   defaulted: 'Defaulted',

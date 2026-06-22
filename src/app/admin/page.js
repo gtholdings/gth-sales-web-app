@@ -13,8 +13,7 @@ const ROLES = [
   { value: 'supervisor' },
   { value: 'manager' },
   { value: 'admin' },
-  { value: 'finance' },
-  { value: 'support' },
+  { value: 'credit_officer' },
 ];
 
 export default function AdminPage() {

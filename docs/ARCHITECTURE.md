@@ -21,7 +21,7 @@
 │  │            Next.js PWA (Frontend)                      │  │
 │  │  ┌──────────────────┐  ┌────────────────────────────┐  │  │
 │  │  │  Mobile PWA UI    │  │  Web Dashboard             │  │  │
-│  │  │  (Rep-facing)     │  │  (Manager/Admin/Finance)   │  │  │
+│  │  │  (Rep-facing)     │  │  (Manager/Admin/Credit Officer) │  │  │
 │  │  └──────────────────┘  └────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────┘  │
 │                          │ API calls                         │
@@ -69,7 +69,7 @@ rep       → WHERE rep_id = my_id
 team_lead → WHERE rep_id IN (my_id, ...my_reps)
 manager   → WHERE rep_id IN (my_id, ...my_TLs, ...their_reps)
 admin     → no filter (all rows)
-finance   → no filter (all rows, read-only endpoints)
+credit_officer → no filter (all rows, read-only endpoints)
 ```
 
 ### API Route Map
@@ -85,7 +85,7 @@ finance   → no filter (all rows, read-only endpoints)
 | GET    | /api/sales                    | withAuth(['any']) + scope            | List sales (scoped by role)  |
 | POST   | /api/sales                    | withAuth(['rep'])                    | Create new sale              |
 | PATCH  | /api/sales/[id]/approve       | withAuth(['team_lead','manager','admin']) | Approve/reject sale     |
-| GET    | /api/sales/reports            | withAuth(['manager','admin','finance'])   | Dashboard summary       |
+| GET    | /api/sales/reports            | withAuth(['supervisor','manager','admin','credit_officer']) | Dashboard summary       |
 | GET    | /api/admin/users              | withAuth(['admin'])                  | List all users               |
 | GET    | /api/admin/users/pending      | withAuth(['admin'])                  | Pending registrations        |
 | PATCH  | /api/admin/users/[id]         | withAuth(['admin'])                  | Approve/update user          |

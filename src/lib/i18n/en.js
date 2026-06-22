@@ -35,8 +35,7 @@ const en = {
   'role.supervisor': 'Supervisor',
   'role.manager': 'Manager',
   'role.admin': 'Admin',
-  'role.finance': 'Finance',
-  'role.support': 'Support',
+  'role.credit_officer': 'Credit Officer',
 
   // login
   'login.brand': 'GTH Sales',
@@ -115,7 +114,7 @@ const en = {
 
   // installment status badges
   'inst.pending': 'Pending',
-  'inst.awaiting_confirmation': 'Awaiting Finance',
+  'inst.awaiting_confirmation': 'Awaiting Credit Officer',
   'inst.paid': 'Paid',
   'inst.overdue': 'Overdue',
   'inst.defaulted': 'Defaulted',
