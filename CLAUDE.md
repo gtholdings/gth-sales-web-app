@@ -110,9 +110,12 @@ wired into `next.config.mjs` (inactive).
 - Admin account: phone `0768971679`.
 
 ## Status / pending
-- ✅ Phone login + installment workflow + reminders + reports deployed earlier (migrations 1–3).
-- 🔄 **This change (supervisor rename + installation-date flow + amendments + i18n) needs the
-  consolidated `001_schema.sql` re-run** (drops & recreates — dev DB wipe). Then clear stale
-  `auth.users` and re-seed the admin (`0768971679`, role admin/active).
-- ⏳ E2E verification of the amendment flow + clamp dates against the live DB still pending.
+- ✅ Consolidated `001_schema.sql` applied; `auth.users` cleared for a clean reset.
+- ✅ **E2E verified against the live DB** (21/21): phone login (all roles), rep proposal →
+  supervisor amend+approve (amend event captures old→new), date clamp (Jan 31 → Feb 28 /
+  Mar 31 / Apr 30), cents-exact split, down-payment auto-claim → finance confirm,
+  installment claim→confirm, detail, reports, defaulters. Sinhala data entry persisted fine.
+- ⏳ Admin re-seed: register `0768971679` via the app, then
+  `UPDATE profiles SET role='admin', status='active' WHERE phone='0768971679';`
+- ⏳ Manual UI pass for the EN⇄SI toggle in a browser (logic verified by build).
 - See [requirements.md](requirements.md) for the consolidated business requirements (SRS).
