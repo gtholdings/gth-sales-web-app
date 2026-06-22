@@ -43,18 +43,6 @@ export default function SalesPage() {
     fetchSales();
   }, [token]);
 
-  const handleApprove = (saleId) => {
-    setSales((prev) =>
-      prev.map((sale) => (sale.id === saleId ? { ...sale, status: 'approved' } : sale))
-    );
-  };
-
-  const handleReject = (saleId) => {
-    setSales((prev) =>
-      prev.map((sale) => (sale.id === saleId ? { ...sale, status: 'rejected' } : sale))
-    );
-  };
-
   return (
     <ProtectedRoute allowedRoles={['any']}>
       <div className="min-h-screen bg-gray-50">
@@ -79,8 +67,6 @@ export default function SalesPage() {
           <SalesTable
             sales={sales}
             userRole={user?.role}
-            onApprove={handleApprove}
-            onReject={handleReject}
             loading={isLoading}
           />
         </main>

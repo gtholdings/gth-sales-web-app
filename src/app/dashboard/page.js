@@ -63,22 +63,6 @@ export default function DashboardPage() {
     fetchData();
   }, [token, user?.role]);
 
-  const handleApprove = (saleId) => {
-    setSales((prevSales) =>
-      prevSales.map((sale) =>
-        sale.id === saleId ? { ...sale, status: 'approved' } : sale
-      )
-    );
-  };
-
-  const handleReject = (saleId) => {
-    setSales((prevSales) =>
-      prevSales.map((sale) =>
-        sale.id === saleId ? { ...sale, status: 'rejected' } : sale
-      )
-    );
-  };
-
   // Simple stats for rep/supervisor (without fetching reports)
   const getSimpleStats = () => {
     const totalSales = sales.length;
@@ -133,8 +117,6 @@ export default function DashboardPage() {
             <SalesTable
               sales={sales}
               userRole={user?.role}
-              onApprove={handleApprove}
-              onReject={handleReject}
               loading={isLoading}
             />
           </div>
