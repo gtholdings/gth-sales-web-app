@@ -112,12 +112,16 @@ date-fns (reports). Deployed on **Netlify** (Node 22). PWA dep present
   `supunbula <betel123@gmail.com>`). Commit on `main`, push when asked.
 - Existing admin account migrated to phone login `0768971679`.
 
-## Open / pending (as of this session)
-- **Migration `003` not yet confirmed applied** to Supabase + RLS off → the
-  installment/payment/reports features are **built & build-clean but NOT yet
-  verified end-to-end against the live DB**. Run 003 (STEP 1 first), then ask
-  Claude to run the E2E verification.
-- Set Netlify env vars (esp. `CRON_SECRET`) + GitHub secrets (`APP_URL`,
-  `CRON_SECRET`) for the reminder cron; confirm Netlify deploy is green.
+## Status / pending
+- ✅ **Migrations 001–003 applied** to Supabase (RLS off). All three schema
+  migrations are live, including the installment workflow + `payment_events`.
+- ✅ **Netlify deploy succeeded** — env vars set; site builds and deploys green.
+- ⏳ **Not yet verified end-to-end against the live DB.** The installment/
+  payment/reports features are built, build-clean, and the schema is now applied,
+  but the full workflow (approve→schedule→claim→finance-confirm→reminders→reports)
+  hasn't been exercised against production data yet. Ask Claude to run the E2E
+  verification when ready.
+- ⏳ **Reminder cron:** confirm GitHub repo secrets `APP_URL` + `CRON_SECRET` are
+  set (matching Netlify's `CRON_SECRET`) and the daily workflow runs.
 - Known transitive audit note: 2 moderate from `uuid` under exceljs (not exploitable here).
 ```
