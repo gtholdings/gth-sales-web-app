@@ -1,0 +1,72 @@
+name: Database Backup
+
+# Nightly pg_dump of the Supabase Postgres DB pushed to a PRIVATE backup repo
+# (gtholdings/gth-sales-backups). The Supabase Free plan has NO automated
+# backups and NO restore — this is our off-site copy, as Supabase recommends.
+#
+# Required GitHub secrets (set on THIS repo: gtholdings/gth-sales-web-app):
+#   SUPABASE_DB_URL    Postgres connection string. Use the SESSION POOLER
+#                      (port 5432, IPv4) — GitHub runners are IPv4-only and
+#                      Supabase's *direct* connection is IPv6-only. Find it in
+#                      Supabase → Project Settings → Database → Connection string
+#                      → "Session pooler". Looks like:
+#                        postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+#                      (URL-encode any special chars in the password.)
+#   BACKUP_SSH_KEY     Private half of a deploy key registered (write access)
+#                      on gtholdings/gth-sales-backups. Used by actions/checkout
+#                      to clone + push over SSH. Scoped to that one repo only.
+
+on:
+  schedule:
+    # 18:30 UTC == 00:00 Asia/Colombo (UTC+5:30). Off-peak local time.
+    # GitHub cron is best-effort; an occasional delay is fine for a daily dump.
+    - cron: '30 18 * * *'
+  workflow_dispatch: {} # manual run for testing / on-demand backup
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout backup repo
+        uses: actions/checkout@v4
+        with:
+          repository: gtholdings/gth-sales-backups
+          ssh-key: ${{ secrets.BACKUP_SSH_KEY }}
+          path: backups
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          STAMP="$(TZ=Asia/Colombo date +%Y-%m-%d)"
+          OUT="backups/daily/gthsales-${STAMP}.sql.gz"
+          mkdir -p backups/daily
+          # pg_dump from postgres:17 to match the Supabase server version and
+          # avoid "server version mismatch" from the runner's older client.
+          docker run --rm -i postgres:17-alpine \
+            pg_dump --no-owner --no-privileges --clean --if-exists \
+              "$SUPABASE_DB_URL" \
+            | gzip > "$OUT"
+          # Fail loudly if the dump is empty/truncated (e.g. auth or network error).
+          test -s "$OUT" || { echo "::error::dump is empty"; exit 1; }
+          echo "Wrote $OUT ($(du -h "$OUT" | cut -f1))"
+
+      - name: Prune dumps older than 30 days
+        run: |
+          set -euo pipefail
+          find backups/daily -name 'gthsales-*.sql.gz' -mtime +30 -print -delete || true
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          cd backups
+          git config user.name "gth-backup-bot"
+          git config user.email "actions@github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "backup: $(TZ=Asia/Colombo date +%Y-%m-%d)"
+            git push
+          fi
