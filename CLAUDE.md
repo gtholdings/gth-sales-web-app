@@ -20,6 +20,11 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - `npm run clean` — delete `.next` + `node_modules/.cache` (fixes stale-cache `Cannot find module './NNN.js'`)
 - `npm run dev:clean` — clean then dev · `npm run lint`
 
+## Docs (keep these in sync when behaviour changes)
+- [README.md](README.md) — project overview/quickstart · [.env.local.example](.env.local.example) — env template
+- [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) — Supabase/Netlify/GitHub setup (uses latest 3rd-party UIs)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — system design · [requirements.md](requirements.md) — business SRS
+
 ## Architecture & hard rules
 - **No RLS.** All access control in the API via `withAuth()` + `scope-query.js`,
   using the Supabase **secret key** (`supabaseAdmin`, bypasses RLS). Disable RLS if
@@ -38,7 +43,10 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **Login = mobile phone** (`07XXXXXXXX`, strict), implemented over Supabase
   email+password via a synthetic email `<phone>@phone.gthsales.local`
   ([phone.js](src/lib/phone.js) `toAuthEmail`) — native phone provider is disabled.
-  Email optional (comms only). Users created via `admin.createUser({email_confirm:true})`.
+  Email optional (comms only). Users created via `admin.createUser({email_confirm:true})`
+  — the Supabase dashboard "Confirm email" toggle is **unreliable** (accounts can be
+  born `email_confirmed_at=null` → sign-in 401); always set `email_confirm:true` in the
+  admin API. Fix a stuck existing account by confirming it via the admin API, not the toggle.
 - **Money:** always `Rs. 1,234.56` via [formatRs](src/lib/format.js). Never Intl currency.
 - **i18n:** [LanguageContext](src/contexts/LanguageContext.js) `useT()` → `t('key', {vars})`;
   dictionaries [src/lib/i18n/{en,si}.js](src/lib/i18n/en.js); `<LanguageSwitcher/>` in the
@@ -122,7 +130,12 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
   The consolidated `001_schema.sql` is a single Run (no ALTER-TYPE ordering issue).
   Click plain **Run** (no RLS).
 - **Netlify ETARGET**: floating transitive versions lag Netlify's mirror — pinned via
-  `overrides`: `nanoid@3.3.12`, `@types/node@22.15.0`. Pin new offenders the same way.
+  `overrides` (`nanoid@3.3.12`, `@types/node@22.15.0`). The same `overrides` block also
+  carries **security pins** (`postcss`, `serialize-javascript`). Pin new offenders the same way.
+- **`netlify.toml` overrides the UI build settings** — anything declared there (build cmd,
+  `NODE_VERSION="22"`, env) wins over the dashboard fields. Edit the file, not the UI.
+- **Dependency security:** keep `npm audit` at **0 vulnerabilities**; `@supabase/ssr` was
+  **removed as unused** (killed the `cookie` advisory). Next is kept on a patched 15.x.
 - **`.next` corruption**: `npm run clean` (don't run `build` then `dev` without cleaning).
 - **Netlify secret scan**: `NEXT_PUBLIC_*` whitelisted via `SECRETS_SCAN_OMIT_KEYS` in netlify.toml.
 
@@ -135,7 +148,11 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 
 ## Git / deploy
 - `git@github-personal:gtholdings/gth-sales-web-app.git` (SSH alias `github-personal`
-  → personal key; repo-local identity `supunbula <betel123@gmail.com>`). Commit on `main`.
+  → personal key; repo-local identity `supunbula <betel123@gmail.com>`).
+- **Branch workflow (REQUIRED): never commit to `main` directly.** Work on **`develop`**,
+  push, and open a **PR into `main`**. Do **not** auto-merge or approve — the owner
+  reviews and merges. Netlify's production branch is `main`, so **production deploys only
+  on merge to main** (PRs still build Deploy Previews — see below).
 - Private backups repo: **`gtholdings/gth-sales-backups`** (pg_dump target, see Backups & ops).
 - Admin account: phone `0768971679`.
 
