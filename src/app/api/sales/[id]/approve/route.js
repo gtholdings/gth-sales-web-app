@@ -60,6 +60,7 @@ export const POST = withAuth(['team_lead', 'manager', 'admin'], async (request, 
     }
 
     const nowIso = new Date().toISOString();
+    const collectionDate = nowIso.slice(0, 10); // down payment collected today
 
     // ---- REJECT ----
     if (action === 'reject') {
@@ -109,12 +110,15 @@ export const POST = withAuth(['team_lead', 'manager', 'admin'], async (request, 
       const dueDates = monthlyDueDates(firstDue, n);
       perInstallment = amounts[0];
 
-      // Base / down-payment payable (installment_number 0).
+      // Base / down-payment (installment_number 0). The supervisor is collecting
+      // it right now, so it starts as CLAIMED (awaiting finance confirmation),
+      // dated to the collection day — not a future "pending" due date.
       installmentRows.push({
         sale_id: saleId, installment_number: 0, is_base: true,
-        amount: baseAmount, due_date: firstDue, status: 'pending',
+        amount: baseAmount, due_date: collectionDate,
+        status: 'awaiting_confirmation', claimed_by: user.id, claimed_at: nowIso, paid_amount: baseAmount,
       });
-      // Scheduled installments 1..N.
+      // Scheduled installments 1..N (start pending).
       for (let i = 0; i < n; i++) {
         installmentRows.push({
           sale_id: saleId, installment_number: i + 1, is_base: false,
@@ -122,18 +126,19 @@ export const POST = withAuth(['team_lead', 'manager', 'admin'], async (request, 
         });
       }
     } else {
-      // Full payment: a single base payable equal to the total, so the cash is
-      // still finance-confirmed through the same workflow.
+      // Full payment: a single base payable equal to the total, collected now.
       baseAmount = total;
       installmentRows.push({
         sale_id: saleId, installment_number: 0, is_base: true,
-        amount: total, due_date: first_due_date || nowIso.slice(0, 10), status: 'pending',
+        amount: total, due_date: collectionDate,
+        status: 'awaiting_confirmation', claimed_by: user.id, claimed_at: nowIso, paid_amount: total,
       });
     }
 
     // Persist installments (replace any stale rows from the old auto-trigger era).
     await supabaseAdmin.from('installments').delete().eq('sale_id', saleId);
-    const { error: insErr } = await supabaseAdmin.from('installments').insert(installmentRows);
+    const { data: insertedRows, error: insErr } = await supabaseAdmin
+      .from('installments').insert(installmentRows).select('id, is_base');
     if (insErr) {
       logger.error('Approve sale: installment insert failed', { saleId, reason: insErr.message });
       return NextResponse.json({ error: 'Failed to create installments' }, { status: 500 });
@@ -161,10 +166,16 @@ export const POST = withAuth(['team_lead', 'manager', 'admin'], async (request, 
       return NextResponse.json({ error: 'Failed to approve sale' }, { status: 500 });
     }
 
-    await supabaseAdmin.from('payment_events').insert({
-      sale_id: saleId, event_type: 'approve_sale', author_id: user.id,
-      note: notes || null, amount: baseAmount,
-    });
+    const baseRow = (insertedRows || []).find((r) => r.is_base);
+    await supabaseAdmin.from('payment_events').insert([
+      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: notes || null, amount: baseAmount },
+      ...(baseRow
+        ? [{
+            sale_id: saleId, installment_id: baseRow.id, event_type: 'claim', author_id: user.id,
+            amount: baseAmount, note: 'Down payment collected at agreement signing',
+          }]
+        : []),
+    ]);
 
     logger.info('Sale approved', { saleId, by: user.id, installments: installmentRows.length });
     return NextResponse.json(updated, { status: 200 });

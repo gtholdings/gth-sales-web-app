@@ -125,6 +125,8 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
       office_phone,
       payment_type,
       num_installments,
+      base_amount,
+      first_due_date,
       notes,
     } = body;
 
@@ -146,6 +148,30 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
       );
     }
 
+    // The rep records a PROPOSED installment plan; no money is collected and no
+    // schedule rows are created here. The schedule is generated later when a
+    // supervisor collects the down payment (the approve step). We persist the
+    // proposed plan so the approval screen can pre-fill it.
+    const isInstallment = (payment_type || 'installment') === 'installment';
+    const down = typeof base_amount === 'number' ? base_amount : 0;
+    const n = parseInt(num_installments, 10) || 0;
+    let installmentAmount = null;
+    if (isInstallment) {
+      if (down < 0 || down >= total_amount) {
+        return NextResponse.json(
+          { error: 'Down payment must be between 0 and the total value' },
+          { status: 400 }
+        );
+      }
+      if (n < 1) {
+        return NextResponse.json({ error: 'Number of installments must be at least 1' }, { status: 400 });
+      }
+      if (!first_due_date || Number.isNaN(Date.parse(first_due_date))) {
+        return NextResponse.json({ error: 'First installment date is required' }, { status: 400 });
+      }
+      installmentAmount = Math.round(((total_amount - down) / n) * 100) / 100;
+    }
+
     // Create sale record
     const { data: sale, error } = await supabaseAdmin
       .from('dialog_tv_sales')
@@ -157,8 +183,11 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
         personal_phone,
         office_phone: office_phone || null,
         total_amount,
-        payment_type: payment_type || null,
-        num_installments: num_installments || null,
+        payment_type: payment_type || 'installment',
+        num_installments: isInstallment ? n : 1,
+        base_amount: isInstallment ? down : total_amount,
+        first_due_date: isInstallment ? first_due_date : null,
+        installment_amount: installmentAmount,
         notes: notes || null,
         status: 'pending',
         created_at: new Date().toISOString(),

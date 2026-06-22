@@ -83,10 +83,27 @@ date-fns (reports). Deployed on **Netlify** (Node 22). PWA dep present
   `notification_recipients_finance`.
 - `notification_log(...)` — email/notify audit, `channel` supports future SMS/WhatsApp.
 
+## Sale lifecycle (important business rule)
+- **Reps never collect money** (not even the down payment). The rep records the
+  sale + a **proposed installment plan** on the form (status `pending`).
+- A **team lead / manager** later visits the customer, signs the agreement, and
+  **collects the down payment** — that is the "approve" action, and it's when the
+  installment **schedule is generated**. The approval panel pre-fills the rep's
+  proposed values (number, down payment, first date) for confirm/adjust.
+- At approval, the base/down-payment row (installment 0) is created already
+  **claimed (awaiting_confirmation)**, dated to the collection day, since the
+  supervisor just collected it; **finance** then confirms it against the bank.
+- Every sale is an **installment plan** (no full-payment toggle in the new form).
+
 ## Feature areas
+- **New sale form** ([src/components/SalesForm.jsx](src/components/SalesForm.jsx)):
+  Customer section + Payment section. Payment auto-calc: Loan = Total − Down,
+  Monthly = Loan ÷ N, installment dates from an editable first date (monthly).
+  Submits the proposed plan to `POST /api/sales` (no schedule created there).
 - **Approval + installments:** [api/sales/[id]/approve](src/app/api/sales/[id]/approve/route.js)
-  takes installment count + base amount + first due date → generates base (row 0)
-  + monthly schedule (cents-exact split, [src/lib/installments.js](src/lib/installments.js)).
+  takes installment count + base amount + first due date (pre-filled from the rep)
+  → generates base (row 0, auto-claimed) + monthly schedule (cents-exact split,
+  [src/lib/installments.js](src/lib/installments.js)).
 - **Payment workflow:** claim (any in-scope) → `awaiting_confirmation` → finance
   confirm/reject. Routes under `api/sales/[id]/installments/[installmentId]/{claim,confirm}`
   and `api/sales/[id]/comments`. Detail UI: [src/app/sales/[id]/page.js](src/app/sales/[id]/page.js).

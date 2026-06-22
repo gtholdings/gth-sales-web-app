@@ -41,7 +41,19 @@ function SaleDetail() {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || 'Failed to load sale');
       }
-      setData(await res.json());
+      const json = await res.json();
+      setData(json);
+      // Pre-fill the approval panel with the rep's proposed plan so the
+      // supervisor confirms/adjusts rather than re-enters.
+      const s = json.sale;
+      if (s?.status === 'pending') {
+        setAppForm((p) => ({
+          ...p,
+          number_of_installments: s.num_installments || p.number_of_installments,
+          base_amount: s.base_amount != null ? String(s.base_amount) : p.base_amount,
+          first_due_date: s.first_due_date || p.first_due_date,
+        }));
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -132,10 +144,14 @@ function SaleDetail() {
         </div>
       </div>
 
-      {/* Approval panel */}
+      {/* Approval panel — supervisor collects the down payment + signs agreement */}
       {sale.status === 'pending' && canApprove && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Approve sale</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Collect down payment &amp; activate</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Confirm the agreed plan (pre-filled from the rep), then approve to generate the
+            installment schedule. The down payment becomes the first payable for finance to confirm.
+          </p>
           {isInstallment ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <div>
