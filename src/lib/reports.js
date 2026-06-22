@@ -48,7 +48,7 @@ export function resolveRange({ range = 'MTD', from, to } = {}) {
 
 /**
  * Rep-id set for the report: getVisibleRepIds (hard ceiling) intersected with an
- * optional manager/teamLead/rep filter. Never widens beyond what the user can see.
+ * optional manager/supervisor/rep filter. Never widens beyond what the user can see.
  * Returns '*' or an array.
  */
 export async function resolveScopeRepIds(user, supabaseAdmin, filter = {}) {
@@ -56,7 +56,7 @@ export async function resolveScopeRepIds(user, supabaseAdmin, filter = {}) {
 
   let target = null;
   if (filter.repId) target = [filter.repId];
-  else if (filter.teamLeadId) target = await getVisibleRepIds({ id: filter.teamLeadId, role: 'team_lead' }, supabaseAdmin);
+  else if (filter.supervisorId) target = await getVisibleRepIds({ id: filter.supervisorId, role: 'supervisor' }, supabaseAdmin);
   else if (filter.managerId) target = await getVisibleRepIds({ id: filter.managerId, role: 'manager' }, supabaseAdmin);
 
   if (!target) return visible;
@@ -208,7 +208,7 @@ export function parseReportParams(request) {
   const groupBy = searchParams.get('groupBy') === 'week' ? 'week' : 'month';
   const filter = {};
   if (searchParams.get('repId')) filter.repId = searchParams.get('repId');
-  else if (searchParams.get('teamLeadId')) filter.teamLeadId = searchParams.get('teamLeadId');
+  else if (searchParams.get('supervisorId')) filter.supervisorId = searchParams.get('supervisorId');
   else if (searchParams.get('managerId')) filter.managerId = searchParams.get('managerId');
   const type = searchParams.get('type') === 'defaulters' ? 'defaulters' : 'summary';
   return { range, from, to, groupBy, filter, type };

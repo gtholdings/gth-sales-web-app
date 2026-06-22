@@ -14,10 +14,10 @@ import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
  *   phone: string (required) - 07 followed by 8 digits (e.g. 0771234567)
  *   password: string (required)
  *   full_name: string (required)
- *   role: string (required) - 'rep', 'team_lead', 'manager', 'admin', 'finance', 'support'
+ *   role: string (required) - 'rep', 'supervisor', 'manager', 'admin', 'finance', 'support'
  *   email: string (optional) - for communications only
- *   reports_to: string (optional) - UUID of reporting manager/team lead
- *   team_lead_id / manager_id: string (optional) - aliases for reports_to
+ *   reports_to: string (optional) - UUID of reporting manager/supervisor
+ *   supervisor_id / manager_id: string (optional) - aliases for reports_to
  * }
  *
  * Response: {
@@ -30,7 +30,7 @@ import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
 export const POST = async (request) => {
   try {
     const body = await request.json();
-    const { email, password, full_name, phone, role, reports_to, team_lead_id, manager_id } = body;
+    const { email, password, full_name, phone, role, reports_to, supervisor_id, manager_id } = body;
 
     // Validate required fields (email is now optional)
     if (!password || !full_name || !phone || !role) {
@@ -53,7 +53,7 @@ export const POST = async (request) => {
     const cleanEmail = typeof email === 'string' && email.trim() ? email.trim() : null;
 
     // The org-hierarchy parent may arrive as reports_to or as a role-specific alias.
-    const parentId = reports_to || team_lead_id || manager_id || null;
+    const parentId = reports_to || supervisor_id || manager_id || null;
 
     // Create the auth user via admin API. The phone is the login identifier,
     // implemented as a deterministic synthetic email (phone@phone.gthsales.local)

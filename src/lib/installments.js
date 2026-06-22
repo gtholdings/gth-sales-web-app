@@ -28,17 +28,20 @@ export function splitInstallmentAmounts(remaining, n) {
 }
 
 /**
- * Monthly due dates starting at firstDueDate, one per installment.
- * date-fns addMonths clamps end-of-month (e.g. Jan 31 -> Feb 28).
- * @param {string|Date} firstDueDate - 'YYYY-MM-DD' or Date
- * @param {number} n
- * @returns {string[]} array of N 'YYYY-MM-DD' strings
+ * Installment due dates derived from the DOWN-PAYMENT date (the anchor).
+ * Installment k (1..N) is due k months after the down-payment date, same
+ * day-of-month, clamped to the month's last day when that day doesn't exist
+ * (date-fns addMonths: e.g. Jan 31 -> Feb 28; May 31 -> Jun 30). The down
+ * payment itself is on `downPaymentDate` and is NOT included here.
+ * @param {string|Date} downPaymentDate - 'YYYY-MM-DD' or Date
+ * @param {number} n - number of installments
+ * @returns {string[]} array of N 'YYYY-MM-DD' strings (k = 1..N)
  */
-export function monthlyDueDates(firstDueDate, n) {
-  const start = typeof firstDueDate === 'string' ? parseISO(firstDueDate) : firstDueDate;
+export function installmentDueDates(downPaymentDate, n) {
+  const anchor = typeof downPaymentDate === 'string' ? parseISO(downPaymentDate) : downPaymentDate;
   const dates = [];
-  for (let i = 0; i < n; i++) {
-    dates.push(format(addMonths(start, i), 'yyyy-MM-dd'));
+  for (let k = 1; k <= n; k++) {
+    dates.push(format(addMonths(anchor, k), 'yyyy-MM-dd'));
   }
   return dates;
 }

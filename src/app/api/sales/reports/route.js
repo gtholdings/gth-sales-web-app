@@ -14,9 +14,9 @@ import logger from '@/lib/logger';
  *                paid/awaiting/pending/defaulted + running cumulative confirmed.
  *
  * Query params (for `report`): range=MTD|last_month|last_90|custom (default MTD),
- *   from/to when custom, groupBy=month|week, one of managerId|teamLeadId|repId.
+ *   from/to when custom, groupBy=month|week, one of managerId|supervisorId|repId.
  */
-export const GET = withAuth(['team_lead', 'manager', 'admin', 'finance'], async (request, { user, supabaseAdmin }) => {
+export const GET = withAuth(['supervisor', 'manager', 'admin', 'finance'], async (request, { user, supabaseAdmin }) => {
   try {
     // ---- legacy all-time stats (unchanged shape; powers the dashboard) ----
     const visibleRepIds = await getVisibleRepIds(user, supabaseAdmin);

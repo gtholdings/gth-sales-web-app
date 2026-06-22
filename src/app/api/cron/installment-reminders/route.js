@@ -4,6 +4,7 @@ import { addDays, subDays, parseISO, format } from 'date-fns';
 import { supabaseAdmin } from '@/lib/supabase';
 import { appTodayYMD, zonedDayStart } from '@/lib/datetime';
 import { notify, resolveSaleStaffRecipients } from '@/lib/notify';
+import { formatRs } from '@/lib/format';
 import logger from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -77,7 +78,7 @@ async function loadSales(saleIds) {
   return map;
 }
 
-const money = (n) => new Intl.NumberFormat('en-LK', { style: 'currency', currency: 'LKR' }).format(Number(n || 0));
+const money = (n) => formatRs(n);
 const label = (it) => (it.is_base ? 'Down payment' : `Installment ${it.installment_number}`);
 
 async function run() {

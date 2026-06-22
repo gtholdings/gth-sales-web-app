@@ -14,9 +14,9 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/sales/reports/export
  * Same params as /api/sales/reports plus type=summary|defaulters.
- * Returns an .xlsx file. Gated to admin / team_lead / manager / finance.
+ * Returns an .xlsx file. Gated to admin / supervisor / manager / finance.
  */
-export const GET = withAuth(['admin', 'team_lead', 'manager', 'finance'], async (request, { user, supabaseAdmin }) => {
+export const GET = withAuth(['admin', 'supervisor', 'manager', 'finance'], async (request, { user, supabaseAdmin }) => {
   try {
     const params = parseReportParams(request);
     let range;

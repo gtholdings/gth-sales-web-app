@@ -12,8 +12,8 @@ import logger from './logger';
  *
  * - admin/finance/support → '*' (can see all)
  * - rep → [user.id] (can only see their own)
- * - team_lead → [user.id, ...reps reporting to them]
- * - manager → [user.id, ...team_leads reporting to them, ...reps under those TLs]
+ * - supervisor → [user.id, ...reps reporting to them]
+ * - manager → [user.id, ...supervisors reporting to them, ...reps under those TLs]
  *
  * @param {Object} user - User object with id and role
  * @param {*} supabaseAdmin - Supabase admin client
@@ -32,8 +32,8 @@ export const getVisibleRepIds = async (user, supabaseAdmin) => {
     return [userId];
   }
 
-  // Team lead can see themselves and reps reporting to them
-  if (role === 'team_lead') {
+  // Supervisor can see themselves and reps reporting to them
+  if (role === 'supervisor') {
     const { data: reps, error } = await supabaseAdmin
       .from('profiles')
       .select('id')
@@ -41,43 +41,43 @@ export const getVisibleRepIds = async (user, supabaseAdmin) => {
       .eq('role', 'rep');
 
     if (error) {
-      logger.error('Error fetching team lead subordinates:', { message: error?.message, stack: error?.stack });
+      logger.error('Error fetching supervisor subordinates:', { message: error?.message, stack: error?.stack });
       return [userId];
     }
 
     return [userId, ...(reps?.map((r) => r.id) || [])];
   }
 
-  // Manager can see themselves, team leads reporting to them, and reps under those TLs
+  // Manager can see themselves, supervisors reporting to them, and reps under those TLs
   if (role === 'manager') {
-    // Fetch team leads reporting to this manager
-    const { data: teamLeads, error: tlError } = await supabaseAdmin
+    // Fetch supervisors reporting to this manager
+    const { data: supervisors, error: tlError } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .eq('reports_to', userId)
-      .eq('role', 'team_lead');
+      .eq('role', 'supervisor');
 
     if (tlError) {
-      logger.error('Error fetching manager team leads:', { message: tlError?.message, stack: tlError?.stack });
+      logger.error('Error fetching manager supervisors:', { message: tlError?.message, stack: tlError?.stack });
       return [userId];
     }
 
-    const teamLeadIds = teamLeads?.map((tl) => tl.id) || [];
+    const supervisorIds = supervisors?.map((tl) => tl.id) || [];
 
-    // Fetch reps reporting to those team leads
+    // Fetch reps reporting to those supervisors
     const { data: reps, error: repsError } = await supabaseAdmin
       .from('profiles')
       .select('id')
-      .in('reports_to', teamLeadIds)
+      .in('reports_to', supervisorIds)
       .eq('role', 'rep');
 
     if (repsError) {
       logger.error('Error fetching manager subordinate reps:', { message: repsError?.message, stack: repsError?.stack });
-      return [userId, ...teamLeadIds];
+      return [userId, ...supervisorIds];
     }
 
     const repIds = reps?.map((r) => r.id) || [];
-    return [userId, ...teamLeadIds, ...repIds];
+    return [userId, ...supervisorIds, ...repIds];
   }
 
   // Default fallback: only see own ID

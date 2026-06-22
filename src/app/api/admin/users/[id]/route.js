@@ -11,7 +11,7 @@ import logger from '@/lib/logger';
  *
  * Body: {
  *   status: string (optional) - 'active', 'pending', 'inactive'
- *   role: string (optional) - 'rep', 'team_lead', 'manager', 'admin', 'finance', 'support'
+ *   role: string (optional) - 'rep', 'supervisor', 'manager', 'admin', 'finance', 'support'
  *   reports_to: string (optional) - UUID of reporting manager, or null
  * }
  *

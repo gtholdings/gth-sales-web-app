@@ -3,11 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase';
 import logger from '@/lib/logger';
 
 /**
- * GET /api/profiles/team-leads
- * Public endpoint - returns list of active team leads (for dropdowns, etc)
+ * GET /api/profiles/supervisors
+ * Public endpoint - returns list of active supervisors (for dropdowns, etc)
  *
  * Response: {
- *   team_leads: [
+ *   supervisors: [
  *     {
  *       id: string
  *       full_name: string
@@ -18,23 +18,23 @@ import logger from '@/lib/logger';
  */
 export const GET = async () => {
   try {
-    const { data: teamLeads, error } = await supabaseAdmin
+    const { data: supervisors, error } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, email')
-      .eq('role', 'team_lead')
+      .eq('role', 'supervisor')
       .eq('status', 'active')
       .order('full_name', { ascending: true });
 
     if (error) {
       return NextResponse.json(
-        { error: 'Failed to fetch team leads' },
+        { error: 'Failed to fetch supervisors' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ team_leads: teamLeads || [] }, { status: 200 });
+    return NextResponse.json({ supervisors: supervisors || [] }, { status: 200 });
   } catch (error) {
-    logger.error('Fetch team leads error:', { message: error?.message, stack: error?.stack });
+    logger.error('Fetch supervisors error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

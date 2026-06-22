@@ -126,7 +126,7 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
       payment_type,
       num_installments,
       base_amount,
-      first_due_date,
+      down_payment_date,
       notes,
     } = body;
 
@@ -166,13 +166,15 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
       if (n < 1) {
         return NextResponse.json({ error: 'Number of installments must be at least 1' }, { status: 400 });
       }
-      if (!first_due_date || Number.isNaN(Date.parse(first_due_date))) {
-        return NextResponse.json({ error: 'First installment date is required' }, { status: 400 });
+      if (!down_payment_date || Number.isNaN(Date.parse(down_payment_date))) {
+        return NextResponse.json({ error: 'Proposed down payment date is required' }, { status: 400 });
       }
       installmentAmount = Math.round(((total_amount - down) / n) * 100) / 100;
     }
 
-    // Create sale record
+    // Create sale record. Store the rep's proposal in proposed_* AND seed the
+    // working columns with the same values; the supervisor finalizes them at
+    // approval (and any change is logged as an `amend` event).
     const { data: sale, error } = await supabaseAdmin
       .from('dialog_tv_sales')
       .insert({
@@ -186,8 +188,11 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
         payment_type: payment_type || 'installment',
         num_installments: isInstallment ? n : 1,
         base_amount: isInstallment ? down : total_amount,
-        first_due_date: isInstallment ? first_due_date : null,
+        down_payment_date: isInstallment ? down_payment_date : null,
         installment_amount: installmentAmount,
+        proposed_num_installments: isInstallment ? n : 1,
+        proposed_base_amount: isInstallment ? down : total_amount,
+        proposed_down_payment_date: isInstallment ? down_payment_date : null,
         notes: notes || null,
         status: 'pending',
         created_at: new Date().toISOString(),

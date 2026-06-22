@@ -90,7 +90,7 @@ export async function resolveFinanceRecipients(supabaseAdmin) {
 }
 
 /**
- * Staff recipients for a sale: the rep + their team lead + manager (via the
+ * Staff recipients for a sale: the rep + their supervisor + manager (via the
  * reports_to chain) + the finance team. Deduped, active, with an email.
  */
 export async function resolveSaleStaffRecipients(supabaseAdmin, repId) {

@@ -6,9 +6,9 @@ import logger from '@/lib/logger';
 /**
  * GET /api/sales/reports/defaulters
  * Per-rep defaulted amount (rep's responsibility), for the requested range/scope.
- * Gated to admin / team_lead / manager / finance.
+ * Gated to admin / supervisor / manager / finance.
  */
-export const GET = withAuth(['admin', 'team_lead', 'manager', 'finance'], async (request, { user, supabaseAdmin }) => {
+export const GET = withAuth(['admin', 'supervisor', 'manager', 'finance'], async (request, { user, supabaseAdmin }) => {
   try {
     const params = parseReportParams(request);
     let range;
