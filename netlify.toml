@@ -6,6 +6,12 @@
 # Next 15 supports Node ^20.19 || ^22.13 || >=24. Pin to 22 LTS for build parity.
 [build.environment]
   NODE_VERSION = "22"
+  # NEXT_PUBLIC_* vars are inlined into the client bundle by design. The Supabase
+  # publishable key and project URL are meant to be public (publishable key
+  # replaces the legacy anon key), so exclude them from Netlify's secret scan.
+  # The real secrets (SUPABASE_SECRET_KEY, RESEND_API_KEY, CRON_SECRET) are NOT
+  # listed here, so the scanner still guards them.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,NEXT_PUBLIC_SUPABASE_URL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
