@@ -31,6 +31,7 @@
   "overrides": {
     "serialize-javascript": "^7.0.6",
     "postcss": "^8.5.15",
-    "nanoid": "3.3.12"
+    "nanoid": "3.3.12",
+    "@types/node": "22.15.0"
   }
 }
