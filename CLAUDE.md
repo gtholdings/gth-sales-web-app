@@ -11,8 +11,9 @@ All free tiers ($0).
 
 **Stack:** Next.js 15.5.19 (App Router, JS not TS) · React 18 · Supabase
 (Postgres + Auth) · Tailwind · Resend (email) · Winston (logging) · exceljs +
-date-fns (reports). Deployed on **Netlify** (Node 22). PWA dep present but not
-wired into `next.config.mjs` (inactive).
+date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
+(manifest linked + icons, standalone) but the **service worker is NOT wired into
+`next.config.mjs`** — so **no offline support** yet. See [Backups & ops](#backups--ops).
 
 ## Commands
 - `npm run dev` / `npm run build`
@@ -89,6 +90,31 @@ wired into `next.config.mjs` (inactive).
   `…/reports`, `…/reports/defaulters`, `…/reports/export`; filter dropdowns from
   `/api/profiles/{supervisors,managers,reps}`.
 
+## Backups & ops
+**Supabase Free has NO automated backups and NO restore**, and projects **pause
+after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
+- **Nightly `pg_dump`** → private repo **`gtholdings/gth-sales-backups`** via
+  [.github/workflows/db-backup.yml](.github/workflows/db-backup.yml) (00:00
+  Asia/Colombo; a commented Mon&Thu cron is the twice-weekly alternative).
+  Gzipped, date-stamped dumps land in `daily/`, pruned after 30 days. **Doubles as
+  a keepalive** — `pg_dump` runs real queries so it resets the pause timer; the
+  reminder cron does NOT (it only hits the API, no DB query).
+- **Must use the SESSION POOLER** connection string: IPv4, port **5432**, user
+  `postgres.<project-ref>` (GitHub runners are IPv4-only; Supabase *direct* is now
+  IPv6-only; the transaction pooler on 6543 can't `pg_dump`). The dump runs inside a
+  `postgres:17` container to match the server version (avoids client-version errors).
+- **Auth = a scoped deploy key** registered (write) on the backups repo; its private
+  key is GitHub secret **`BACKUP_SSH_KEY`**, the connection string is **`SUPABASE_DB_URL`**.
+  Both are **GitHub Actions secrets on `gth-sales-web-app`**, not Netlify env vars.
+- **`APP_URL`** (reminder cron) must be the **base origin** `https://gtholdings.netlify.app`
+  with **no path** — the workflow appends `/api/cron/installment-reminders`.
+- **PWA install** (was a grey bookmark that opened in a browser tab): the fix was
+  linking the manifest. `public/manifest.json` is wired via `metadata.manifest`/`icons`/
+  `appleWebApp` in [layout.js](src/app/layout.js), and `public/icons/*` now exist
+  (placeholder GTH monogram — **overwrite the PNGs to rebrand**, no code change).
+  After a deploy, delete the old home-screen shortcut and re-add via Chrome
+  **"Install app"** (Chrome caches the manifest; Incognito to bypass).
+
 ## Recurring gotchas
 - **API response keys must match the client** (return named keys: `{ sales }`,
   `{ users }`, `{ supervisors }` …) — silent empty lists otherwise.
@@ -101,12 +127,16 @@ wired into `next.config.mjs` (inactive).
 - **Netlify secret scan**: `NEXT_PUBLIC_*` whitelisted via `SECRETS_SCAN_OMIT_KEYS` in netlify.toml.
 
 ## Env vars
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public),
-`SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, `CRON_SECRET`, `LOG_LEVEL?`.
+- **App (Netlify / `.env.local`):** `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public), `SUPABASE_SECRET_KEY`,
+  `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, `CRON_SECRET`, `LOG_LEVEL?`.
+- **GitHub Actions secrets (on `gth-sales-web-app`):** `APP_URL`, `CRON_SECRET`
+  (reminders) · `SUPABASE_DB_URL` (session-pooler string), `BACKUP_SSH_KEY` (backups).
 
 ## Git / deploy
 - `git@github-personal:gtholdings/gth-sales-web-app.git` (SSH alias `github-personal`
   → personal key; repo-local identity `supunbula <betel123@gmail.com>`). Commit on `main`.
+- Private backups repo: **`gtholdings/gth-sales-backups`** (pg_dump target, see Backups & ops).
 - Admin account: phone `0768971679`.
 
 ## Status / pending
@@ -115,7 +145,13 @@ wired into `next.config.mjs` (inactive).
   supervisor amend+approve (amend event captures old→new), date clamp (Jan 31 → Feb 28 /
   Mar 31 / Apr 30), cents-exact split, down-payment auto-claim → finance confirm,
   installment claim→confirm, detail, reports, defaulters. Sinhala data entry persisted fine.
+- ✅ **Nightly DB backup live & verified** — `db-backup.yml` run green; first dump
+  (`daily/gthsales-*.sql.gz`, 41 tables incl. `auth.*`) committed to the backups repo.
+- ✅ **Reminder cron secrets set** (`APP_URL` base origin + `CRON_SECRET` on GitHub);
+  daily reminders workflow wired.
+- ✅ **PWA installable** — manifest linked + placeholder icons committed & pushed.
 - ⏳ Admin re-seed: register `0768971679` via the app, then
   `UPDATE profiles SET role='admin', status='active' WHERE phone='0768971679';`
 - ⏳ Manual UI pass for the EN⇄SI toggle in a browser (logic verified by build).
+- ⏳ Replace placeholder PWA icons (`public/icons/*`) with real GTH artwork.
 - See [requirements.md](requirements.md) for the consolidated business requirements (SRS).
