@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { appTodayYMD } from '@/lib/datetime';
+import { recomputeSaleStatus } from '@/lib/sale-status';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
@@ -64,13 +65,8 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
         author_id: user.id, amount, note: comment,
       });
 
-      // If all payables are paid, complete the sale.
-      const { data: remaining } = await supabaseAdmin
-        .from('installments').select('id').eq('sale_id', saleId).neq('status', 'paid');
-      if (!remaining || remaining.length === 0) {
-        await supabaseAdmin
-          .from('dialog_tv_sales').update({ status: 'completed', updated_at: nowIso }).eq('id', saleId);
-      }
+      // Advance the sale lifecycle from payment state (confirmed -> in_progress -> closed).
+      await recomputeSaleStatus(saleId, supabaseAdmin);
 
       logger.info('Payment confirmed', { saleId, installmentId, by: user.id, amount });
       return NextResponse.json(updated, { status: 200 });
@@ -99,6 +95,9 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
       sale_id: saleId, installment_id: installmentId, event_type: 'reject',
       author_id: user.id, note: comment,
     });
+
+    // A rejection may move the sale back (closed/in_progress -> in_progress/confirmed).
+    await recomputeSaleStatus(saleId, supabaseAdmin);
 
     logger.info('Payment claim rejected', { saleId, installmentId, by: user.id });
     return NextResponse.json(updated, { status: 200 });

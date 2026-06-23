@@ -38,14 +38,23 @@ CREATE TYPE user_role AS ENUM (
   'supervisor',     -- Supervisor (supervises reps; was "team_lead")
   'manager',        -- Manager (supervises supervisors)
   'admin',          -- Admin (maps to MD)
-  'credit_officer'  -- Credit Officer (confirms payments; was "finance")
+  'credit_officer', -- Credit Officer (confirms payments; was "finance")
+  'field_officer'   -- Field Officer (cross-team; sees ALL sales read-only, comments only)
 );
 
 CREATE TYPE user_status AS ENUM ('pending', 'active', 'inactive');
 
 CREATE TYPE payment_type AS ENUM ('full', 'installment');
 
-CREATE TYPE sale_status AS ENUM ('pending', 'approved', 'rejected', 'completed');
+-- Sale lifecycle:
+--   pending     — rep submitted the proposal; awaiting back-office/approval
+--   confirmed   — approved & schedule generated; down payment claimed, nothing bank-confirmed yet
+--                 (a.k.a. "Confirmed – Pending Installation")
+--   in_progress — at least one payment confirmed (paid), but not all
+--   closed      — every payable confirmed paid
+--   rejected    — sale declined
+-- in_progress/closed are DERIVED from payment state (see src/lib/sale-status.js).
+CREATE TYPE sale_status AS ENUM ('pending', 'confirmed', 'in_progress', 'closed', 'rejected');
 
 CREATE TYPE installment_status AS ENUM (
   'pending',

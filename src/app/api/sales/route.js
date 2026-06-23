@@ -2,9 +2,37 @@ import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds, scopeSalesQuery } from '@/lib/scope-query';
 import { readPlanConfig } from '@/lib/config';
 import { totalRepayable, splitInstallmentAmounts } from '@/lib/installments';
+import { effectiveSaleStatus } from '@/lib/sale-status';
 import { formatRs } from '@/lib/format';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+/**
+ * Per-sale money rollup from its installment rows (down payment + schedule).
+ *  collectible_total — everything to collect (incl. interest)
+ *  collected_amount  — confirmed paid so far
+ *  pending_amount    — still to collect (collectible − collected)
+ * For sales without a schedule yet, collectible falls back to total_amount.
+ */
+function summarizeSale(sale) {
+  const rows = Array.isArray(sale.installments) ? sale.installments : [];
+  let collectible = 0;
+  let collected = 0;
+  for (const i of rows) {
+    const amt = Number(i.amount) || 0;
+    collectible += amt;
+    if (i.status === 'paid') collected += Number(i.paid_amount ?? amt) || 0;
+  }
+  if (rows.length === 0) collectible = Number(sale.total_amount) || 0;
+  return {
+    collectible_total: round2(collectible),
+    collected_amount: round2(collected),
+    pending_amount: round2(Math.max(0, collectible - collected)),
+    effective_status: effectiveSaleStatus(sale.status, rows),
+  };
+}
 
 /**
  * GET /api/sales
@@ -75,9 +103,13 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
       );
     }
 
+    // Roll up each sale's money + effective lifecycle status so the list view
+    // can show Total / Collected / Pending without opening every row.
+    const enriched = (sales || []).map((s) => ({ ...s, ...summarizeSale(s) }));
+
     return NextResponse.json(
       {
-        sales: sales || [],
+        sales: enriched,
         total: count || 0,
       },
       { status: 200 }
@@ -93,7 +125,8 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
 
 /**
  * POST /api/sales
- * Protected endpoint (rep only) - creates new sale
+ * Reps, supervisors, managers and admins can create a sale (they all do
+ * door-to-door selling at times). The creator becomes the owning rep_id.
  *
  * Headers: Authorization: Bearer {token}
  *
@@ -116,7 +149,7 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
  *   ...
  * }
  */
-export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) => {
+export const POST = withAuth(['rep', 'supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin }) => {
   try {
     const body = await request.json();
     const {

@@ -49,6 +49,7 @@ const si = {
   'role.manager': 'කළමනාකරු',
   'role.admin': 'පරිපාලක',
   'role.credit_officer': 'ණය නිලධාරී',
+  'role.field_officer': 'ක්ෂේත්‍ර නිලධාරී',
 
   // login
   'login.brand': 'GTH Sales',
@@ -110,6 +111,10 @@ const si = {
   'sales.col_nic': 'NIC',
   'sales.col_phone': 'දුරකථනය',
   'sales.col_amount': 'මුදල',
+  'sales.col_value': 'වටිනාකම',
+  'sales.col_to_collect': 'එකතු කළ යුතු',
+  'sales.col_collected': 'එකතු කළ',
+  'sales.col_pending': 'ඉතිරි',
   'sales.col_type': 'වර්ගය',
   'sales.col_status': 'තත්ත්වය',
   'sales.col_rep': 'නියෝජිත',
@@ -119,9 +124,10 @@ const si = {
 
   // sale status badges
   'sale_status.pending': 'පොරොත්තුවෙන්',
-  'sale_status.approved': 'අනුමතයි',
+  'sale_status.confirmed': 'තහවුරුයි – ස්ථාපනය බලාපොරොත්තුවෙන්',
+  'sale_status.in_progress': 'ක්‍රියාත්මක වෙමින්',
+  'sale_status.closed': 'අවසන් කළා',
   'sale_status.rejected': 'ප්‍රතික්ෂේපයි',
-  'sale_status.completed': 'සම්පූර්ණයි',
   'payment_type.full': 'සම්පූර්ණ ගෙවීම',
   'payment_type.installment': 'වාරික',
 
@@ -205,6 +211,7 @@ const si = {
   'detail.rep_label': 'නියෝජිත: {name}',
   'detail.approved_by': '{name} විසින් අනුමත කරන ලදී · {date}',
   'detail.proposed_label': 'නියෝජිත යෝජනාව: වාරික {count} · ආරම්භක ගෙවීම {amount} {date} දින',
+  'detail.field_officer_notice': 'ඔබ මෙය බලන්නේ ක්ෂේත්‍ර නිලධාරියෙකු ලෙසයි (කියවීම පමණි). ඔබට අදහස් එක් කළ හැක, නමුත් සැලැස්ම වෙනස් කිරීම් (ආරම්භක ගෙවීම, වාරික, දිනය) සහ ගෙවීම් අදාළ නියෝජිතයා, අධීක්ෂක හෝ කළමනාකරු විසින් කළ යුතුයි — කරුණාකර දුරකථනයෙන් ඔවුන් සමඟ සම්බන්ධ වන්න.',
   'event.amend': 'සැලැස්ම සංශෝධනය කළා',
 
   // admin
@@ -271,7 +278,10 @@ const si = {
   'stats.total_revenue': 'මුළු විකුණුම් වටිනාකම',
   'stats.total_collectible': 'එකතු කළ යුතු (පොලිය සමඟ)',
   'stats.pending': 'අනුමැතිය පොරොත්තු',
-  'stats.completed': 'සම්පූර්ණ විකුණුම්',
+  'stats.in_progress': 'ක්‍රියාත්මක වෙමින්',
+  'stats.closed': 'අවසන් කළ විකුණුම්',
+  'stats.success_rate': 'සාර්ථකත්ව අනුපාතය',
+  'stats.success_rate_hint': 'විකුණුම් {total} න් {won} ක් තහවුරුයි',
 
   // protected route
   'guard.access_denied': 'ප්‍රවේශය ප්‍රතික්ෂේපයි',

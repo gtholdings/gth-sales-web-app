@@ -64,8 +64,12 @@ function SaleDetail() {
 
   useEffect(() => { load(); }, [load]);
 
-  const canApprove = ['supervisor', 'manager', 'admin'].includes(user?.role);
+  // Reps can finalize (install + collect down payment on) their OWN sale; the
+  // server scope-check guarantees a rep only ever sees/acts on their own sales.
+  const canApprove = ['rep', 'supervisor', 'manager', 'admin'].includes(user?.role);
+  const canClaim = ['rep', 'supervisor', 'manager', 'admin'].includes(user?.role);
   const canConfirm = ['credit_officer', 'admin'].includes(user?.role);
+  const isReadOnly = user?.role === 'field_officer'; // cross-team viewer, comments only
 
   const act = async (fn) => {
     setBusy(true);
@@ -116,6 +120,46 @@ function SaleDetail() {
   const addItemComment = (instId, note) => act(() => post(`/api/sales/${id}/comments`, { note, installment_id: instId }));
   const addSaleComment = () => act(async () => { await post(`/api/sales/${id}/comments`, { note: commentText }); setCommentText(''); });
 
+  // Shared per-installment action buttons (used by the desktop table + mobile cards).
+  const itemActions = (it) => (
+    <div className="flex gap-2 flex-wrap">
+      {canClaim && it.display_status !== 'paid' && it.display_status !== 'awaiting_confirmation' && (
+        <button disabled={busy} onClick={() => claim(it.id)}
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-3 py-1 rounded text-xs font-medium">
+          {t('detail.mark_paid')}
+        </button>
+      )}
+      {it.display_status === 'awaiting_confirmation' && canConfirm && (
+        <>
+          <button disabled={busy} onClick={() => confirm(it.id, 'confirm')}
+            className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-3 py-1 rounded text-xs font-medium">
+            {t('detail.confirm')}
+          </button>
+          <button disabled={busy} onClick={() => confirm(it.id, 'reject')}
+            className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3 py-1 rounded text-xs font-medium">
+            {t('detail.reject_payment')}
+          </button>
+        </>
+      )}
+      <button disabled={busy}
+        onClick={() => { const note = prompt(t('detail.comment_prompt')); if (note && note.trim()) addItemComment(it.id, note.trim()); }}
+        className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-xs font-medium">
+        {t('detail.comment')}
+      </button>
+    </div>
+  );
+
+  const itemMeta = (it) => (
+    <div className="text-gray-600 text-xs space-y-0.5">
+      {it.paid_date && <div>{t('detail.paid_on', { date: fmtDate(it.paid_date) })}</div>}
+      {it.claimed_by_name && it.display_status === 'awaiting_confirmation' && <div>{t('detail.claimed_by', { name: it.claimed_by_name })}</div>}
+      {it.confirmed_by_name && <div>{t('detail.confirmed_by', { name: it.confirmed_by_name })}</div>}
+      {it.finance_note && <div className="italic">“{it.finance_note}”</div>}
+    </div>
+  );
+
+  const itemTitle = (it) => (it.is_base ? t('detail.down_payment_row') : t('detail.installment_n', { n: it.installment_number }));
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
@@ -156,6 +200,13 @@ function SaleDetail() {
       <button onClick={() => router.push('/sales')} className="text-blue-600 hover:underline text-sm mb-4">{t('common.back_to_sales')}</button>
 
       {error && <div className="mb-4 bg-red-100 border border-red-400 text-red-700 rounded-lg p-3">{error}</div>}
+
+      {/* Field Officer: read-only notice — changes must be made by the owning team */}
+      {isReadOnly && (
+        <div className="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-lg p-3 text-sm">
+          {t('detail.field_officer_notice')}
+        </div>
+      )}
 
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -275,7 +326,9 @@ function SaleDetail() {
       {installments.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <h2 className="text-lg font-bold text-gray-900 p-4 border-b border-gray-200">{t('detail.payments')}</h2>
-          <div className="overflow-x-auto">
+
+          {/* Desktop / tablet table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
@@ -290,50 +343,37 @@ function SaleDetail() {
               <tbody>
                 {installments.map((it) => (
                   <tr key={it.id} className="border-b border-gray-200">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {it.is_base ? t('detail.down_payment_row') : t('detail.installment_n', { n: it.installment_number })}
-                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-900">{itemTitle(it)}</td>
                     <td className="px-4 py-3 text-gray-700">{fmtDate(it.due_date)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatRs(it.amount)}</td>
                     <td className="px-4 py-3 text-center"><InstallmentStatusBadge status={it.display_status} /></td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">
-                      {it.paid_date && <div>{t('detail.paid_on', { date: fmtDate(it.paid_date) })}</div>}
-                      {it.claimed_by_name && it.display_status === 'awaiting_confirmation' && <div>{t('detail.claimed_by', { name: it.claimed_by_name })}</div>}
-                      {it.confirmed_by_name && <div>{t('detail.confirmed_by', { name: it.confirmed_by_name })}</div>}
-                      {it.finance_note && <div className="italic">“{it.finance_note}”</div>}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2 justify-center flex-wrap">
-                        {it.display_status !== 'paid' && it.display_status !== 'awaiting_confirmation' && (
-                          <button disabled={busy} onClick={() => claim(it.id)}
-                            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-3 py-1 rounded text-xs font-medium">
-                            {t('detail.mark_paid')}
-                          </button>
-                        )}
-                        {it.display_status === 'awaiting_confirmation' && canConfirm && (
-                          <>
-                            <button disabled={busy} onClick={() => confirm(it.id, 'confirm')}
-                              className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-3 py-1 rounded text-xs font-medium">
-                              {t('detail.confirm')}
-                            </button>
-                            <button disabled={busy} onClick={() => confirm(it.id, 'reject')}
-                              className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-3 py-1 rounded text-xs font-medium">
-                              {t('detail.reject_payment')}
-                            </button>
-                          </>
-                        )}
-                        <button disabled={busy}
-                          onClick={() => { const note = prompt(t('detail.comment_prompt')); if (note && note.trim()) addItemComment(it.id, note.trim()); }}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-xs font-medium">
-                          {t('detail.comment')}
-                        </button>
-                      </div>
-                    </td>
+                    <td className="px-4 py-3">{itemMeta(it)}</td>
+                    <td className="px-4 py-3"><div className="flex justify-center">{itemActions(it)}</div></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Mobile cards */}
+          <ul className="md:hidden divide-y divide-gray-100">
+            {installments.map((it) => (
+              <li key={it.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-gray-900">{itemTitle(it)}</p>
+                    <p className="text-xs text-gray-500">{t('detail.col_due')}: {fmtDate(it.due_date)}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-gray-900">{formatRs(it.amount)}</div>
+                    <div className="mt-1"><InstallmentStatusBadge status={it.display_status} /></div>
+                  </div>
+                </div>
+                <div className="mt-2">{itemMeta(it)}</div>
+                <div className="mt-2">{itemActions(it)}</div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

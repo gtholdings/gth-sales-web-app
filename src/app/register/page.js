@@ -300,6 +300,7 @@ export default function RegisterPage() {
                 <option value="supervisor">{t('role.supervisor')}</option>
                 <option value="manager">{t('role.manager')}</option>
                 <option value="credit_officer">{t('role.credit_officer')}</option>
+                <option value="field_officer">{t('role.field_officer')}</option>
               </select>
             </div>
 

@@ -14,6 +14,7 @@ const ROLES = [
   { value: 'manager' },
   { value: 'admin' },
   { value: 'credit_officer' },
+  { value: 'field_officer' },
 ];
 
 export default function AdminPage() {

@@ -39,8 +39,9 @@ export default function DashboardPage() {
           setError('Failed to load sales data');
         }
 
-        // Fetch stats for manager/admin/credit_officer roles
-        if (['manager', 'admin', 'credit_officer'].includes(user?.role)) {
+        // Everyone but the read-only Field Officer gets the rich stats
+        // (incl. success rate) scoped to what they can see.
+        if (user?.role !== 'field_officer') {
           const reportsResponse = await fetch('/api/sales/reports', {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -63,20 +64,24 @@ export default function DashboardPage() {
     fetchData();
   }, [token, user?.role]);
 
-  // Simple stats for rep/supervisor (without fetching reports)
+  // Fallback stats computed from the sales list (used only for the Field
+  // Officer, who has no reporting endpoint access).
   const getSimpleStats = () => {
-    const totalSales = sales.length;
-    const pendingSales = sales.filter((s) => s.status === 'pending').length;
-    const approvedSales = sales.filter((s) => s.status === 'approved').length;
+    const eff = (s) => s.effective_status || s.status;
+    const count = (st) => sales.filter((s) => eff(s) === st).length;
     const totalRevenue = sales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0);
-
+    const collectible = sales.reduce((sum, s) => sum + (parseFloat(s.collectible_total) || 0), 0);
+    const won = count('confirmed') + count('in_progress') + count('closed');
     return {
-      total_sales: totalSales,
+      total_sales: sales.length,
       total_revenue: totalRevenue,
+      total_collectible: Math.round(collectible * 100) / 100,
+      success_rate: sales.length ? Math.round((won / sales.length) * 1000) / 10 : 0,
+      won_sales: won,
       by_status: {
-        pending: pendingSales,
-        approved: approvedSales,
-        completed: 0,
+        pending: count('pending'),
+        in_progress: count('in_progress'),
+        closed: count('closed'),
       },
     };
   };

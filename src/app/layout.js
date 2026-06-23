@@ -2,6 +2,7 @@ import { Inter, Noto_Sans_Sinhala } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
+import { BottomNav } from '@/components/BottomNav';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 // Sinhala-capable font so Sinhala labels and data render correctly.
@@ -42,7 +43,10 @@ export default function RootLayout({ children }) {
       </head>
       <body className={`${inter.variable} ${notoSinhala.variable} font-sans`}>
         <LanguageProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <BottomNav />
+          </AuthProvider>
         </LanguageProvider>
       </body>
     </html>

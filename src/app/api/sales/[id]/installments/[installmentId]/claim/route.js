@@ -5,10 +5,12 @@ import logger from '@/lib/logger';
 
 /**
  * POST /api/sales/[id]/installments/[installmentId]/claim
- * Any in-scope user marks a payable as paid -> goes to Finance for confirmation.
+ * A rep/supervisor/manager/admin in scope marks a payable as collected -> goes
+ * to the Credit Officer for confirmation. (Field Officers are read-only and the
+ * Credit Officer confirms rather than claims, so neither can claim here.)
  * Body: { paid_amount?: number, note?: string }
  */
-export const POST = withAuth(['any'], async (request, { user, supabaseAdmin, params }) => {
+export const POST = withAuth(['rep', 'supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin, params }) => {
   try {
     const { id: saleId, installmentId } = await params;
     const body = await request.json().catch(() => ({}));

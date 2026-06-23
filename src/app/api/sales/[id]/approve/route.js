@@ -8,7 +8,9 @@ import logger from '@/lib/logger';
 /**
  * POST /api/sales/[id]/approve
  * Approve (and configure the installment schedule) or reject a pending sale.
- * Gated to supervisor / manager / admin, scoped to their visible reps.
+ * This is the field-installation step: down payment collected, plan amendable.
+ * Gated to rep / supervisor / manager / admin, scoped to their visible reps —
+ * a rep can therefore finalize their OWN sale when they attend the installation.
  *
  * Body (approve):
  *   { action: 'approve',
@@ -24,7 +26,7 @@ import logger from '@/lib/logger';
  *   - rows 1..N: monthly schedule, cents-exact amounts
  * and writes an `approve_sale` / `reject_sale` audit event.
  */
-export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin, params }) => {
+export const POST = withAuth(['rep', 'supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin, params }) => {
   try {
     const { id: saleId } = await params;
     const body = await request.json();
@@ -170,7 +172,9 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     const { data: updated, error: updErr } = await supabaseAdmin
       .from('dialog_tv_sales')
       .update({
-        status: 'approved',
+        // 'confirmed' = schedule generated + down payment claimed; it advances to
+        // in_progress / closed automatically as payments are confirmed.
+        status: 'confirmed',
         num_installments: numInstallments,
         base_amount: baseAmount,
         down_payment_date: sale.payment_type === 'installment' ? downPaymentDate : null,

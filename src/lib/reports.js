@@ -91,7 +91,9 @@ async function getThreshold(supabaseAdmin) {
   return Number.isFinite(n) ? n : 30;
 }
 
-const CONFIRMED = new Set(['approved', 'completed']);
+// A sale counts as "confirmed business" once it has a schedule (down payment
+// collected), i.e. any active lifecycle state.
+const CONFIRMED = new Set(['confirmed', 'in_progress', 'closed']);
 
 // Fetch the scoped sales for a range. repIds '*' or array.
 async function fetchSales(supabaseAdmin, repIds, range) {

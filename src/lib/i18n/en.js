@@ -49,6 +49,7 @@ const en = {
   'role.manager': 'Manager',
   'role.admin': 'Admin',
   'role.credit_officer': 'Credit Officer',
+  'role.field_officer': 'Field Officer',
 
   // login
   'login.brand': 'GTH Sales',
@@ -110,6 +111,10 @@ const en = {
   'sales.col_nic': 'NIC',
   'sales.col_phone': 'Phone',
   'sales.col_amount': 'Amount',
+  'sales.col_value': 'Value',
+  'sales.col_to_collect': 'To Collect',
+  'sales.col_collected': 'Collected',
+  'sales.col_pending': 'Pending',
   'sales.col_type': 'Type',
   'sales.col_status': 'Status',
   'sales.col_rep': 'Rep',
@@ -119,9 +124,10 @@ const en = {
 
   // sale status badges
   'sale_status.pending': 'Pending',
-  'sale_status.approved': 'Approved',
+  'sale_status.confirmed': 'Confirmed – Pending Installation',
+  'sale_status.in_progress': 'In Progress',
+  'sale_status.closed': 'Closed',
   'sale_status.rejected': 'Rejected',
-  'sale_status.completed': 'Completed',
   'payment_type.full': 'Full Payment',
   'payment_type.installment': 'Installment',
 
@@ -205,6 +211,7 @@ const en = {
   'detail.rep_label': 'Rep: {name}',
   'detail.approved_by': 'Approved by {name} · {date}',
   'detail.proposed_label': "Rep proposed: {count} installments · down payment {amount} on {date}",
+  'detail.field_officer_notice': 'You are viewing this as a Field Officer (read-only). You can add comments, but plan changes (down payment, installments, date) and payments must be made by the owning rep, supervisor or manager — please coordinate with them by phone.',
   'event.amend': 'amended the plan',
 
   // admin
@@ -271,7 +278,10 @@ const en = {
   'stats.total_revenue': 'Total Sales Value',
   'stats.total_collectible': 'To Collect (incl. interest)',
   'stats.pending': 'Pending Approvals',
-  'stats.completed': 'Completed Sales',
+  'stats.in_progress': 'In Progress',
+  'stats.closed': 'Closed Sales',
+  'stats.success_rate': 'Success Rate',
+  'stats.success_rate_hint': '{won} of {total} sales confirmed',
 
   // protected route
   'guard.access_denied': 'Access Denied',

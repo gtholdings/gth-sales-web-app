@@ -26,11 +26,12 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 
 | Role | Responsibilities | Data visibility |
 |------|------------------|-----------------|
-| **Rep** | Create sales + propose payment plans. Never collects money. | Own sales |
-| **Supervisor** | Approve sales, confirm installation date, collect down payment, sign agreement, amend the plan. | Own + their reps |
-| **Manager** | Everything a supervisor does, across their supervisors. | Own + supervisors + their reps |
+| **Rep** | Create sales + propose payment plans. May also attend the installation for **their own** sale: amend the plan and collect payments. | Own sales |
+| **Supervisor** | Create sales; approve/install sales, confirm installation date, collect the down payment, sign agreement, amend the plan, collect payments. | Own + their reps |
+| **Manager** | Everything a supervisor does, across their supervisors; can also create sales. | Own + supervisors + their reps |
 | **Admin (MD)** | Full access; user management; configuration. | All |
 | **Credit Officer** | Confirm payments against the bank; view reports. | All |
+| **Field Officer** | Cross-team field installer who attends an installation when the owning team is unavailable. **Read-only on every sale; may only add comments.** Plan/payment changes are phoned through to the owning rep/supervisor/manager. | All (read-only) |
 
 (Note: "Supervisor" is the canonical term throughout the system, including the database.)
 
@@ -43,9 +44,9 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-AUTH-4** Account states: Pending → Active → Inactive. Only Active users can log in.
 - **R-AUTH-5** Access control is enforced server-side per role and per org-scope on every request.
 
-## 4. Sales Capture (Rep)
-- **R-SALE-1** A rep records: customer name, NIC, permanent address, personal phone,
-  optional office phone.
+## 4. Sales Capture (Rep / Supervisor / Manager)
+- **R-SALE-1** A rep (or a supervisor/manager doing door-to-door selling) records: customer
+  name, NIC, permanent address, personal phone, optional office phone. The creator owns the sale.
 - **R-SALE-2** NIC must be valid Sri Lankan format (9 digits + V/X, or 12 digits).
 - **R-SALE-3** The rep enters the **proposed payment plan**: Total Value, Down Payment;
   **Loan Amount auto-calculates** (Total − Down). The rep enters the **Number of
@@ -56,18 +57,24 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
   is **Pending** with the proposal stored; no installment schedule exists yet.
 - **R-SALE-6** All sales are installment plans. Customer text (name/address) may be entered in Sinhala.
 
-## 5. Approval, Installation & Down-Payment Collection (Supervisor/Manager)
-- **R-APPR-1** A supervisor/manager reviews pending sales, coordinates a technician
+## 5. Approval, Installation & Down-Payment Collection (Rep/Supervisor/Manager)
+- **R-APPR-1** A rep, supervisor or manager reviews pending sales, coordinates a technician
   **installation date** offline, then records it in the app as the **down-payment date**.
+  Whoever attends the installation performs this step — including the **originating rep**
+  for their own sale (so a sale can be completed even when the supervisor/manager is away).
 - **R-APPR-2** At the installation visit the customer may change the **down-payment date,
-  down-payment amount, and/or number of installments**. The supervisor/manager can amend
-  all three on the approval screen (pre-filled from the rep's proposal).
-- **R-APPR-3** **Approving generates the installment schedule** and marks the sale Active/Approved.
-  Approval represents collecting the down payment and signing the agreement.
+  down-payment amount, and/or number of installments**. The attendee can amend all three on
+  the approval screen (pre-filled from the rep's proposal) and mark payments as collected.
+- **R-APPR-3** **Approving generates the installment schedule** and moves the sale to
+  **Confirmed**. Approval represents collecting the down payment and signing the agreement.
 - **R-APPR-4** **Amendment audit:** if the approved values differ from the rep's proposed
   values, the system records an audit entry capturing the change (old → new), preserved in
   the sale's history/comments with author and timestamp.
 - **R-APPR-5** A pending sale may instead be **rejected** (with notes), recorded in history.
+- **R-APPR-6** When the owning team is unavailable, a **Field Officer** may attend the
+  installation. They have **read-only** access to every sale and can only **add comments**;
+  they coordinate the actual plan changes and payment entry by phone with the owning rep,
+  supervisor or manager, who update the system.
 
 ## 6. Installment Scheduling
 - **R-SCH-1** The **down payment** is due on the down-payment date.
@@ -99,7 +106,11 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-PAY-5** Every action (comment, claim, confirm, reject, approval, amendment) is an
   **audit event recording the author and timestamp** (and amount/note where relevant), shown
   as the sale's activity history.
-- **R-PAY-6** A sale becomes **Completed** when all payables are confirmed paid.
+- **R-PAY-6** A sale's lifecycle status is **Pending → Confirmed → In Progress → Closed**
+  (or **Rejected**). *Pending* = proposal awaiting installation. *Confirmed* ("Confirmed –
+  Pending Installation") = schedule generated, nothing bank-confirmed yet. *In Progress* =
+  at least one payable confirmed paid. *Closed* = all payables confirmed paid. The
+  In-Progress and Closed transitions are **derived automatically from payment state**.
 - **R-PAY-7** "Defaulted" = an unpaid payable overdue beyond a **configurable threshold**
   (default 30 days). Default amounts are attributed to the responsible rep.
 
@@ -122,6 +133,16 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-RPT-4** A **defaulter report** lists each rep with their defaulted count and outstanding
   defaulted amount (so the credit officer can action salary deductions in a separate process).
 - **R-RPT-5** Reports are **exportable to Excel (.xlsx)**.
+- **R-RPT-6** **Personal performance metrics.** Every Rep, Supervisor and Manager can see
+  their own sales metrics over a selectable time range: number of sales, **success rate**
+  (share of sales that converted to a confirmed installation), total sales value and amount
+  to collect. Supervisors can additionally view each of their reps individually; Managers can
+  view each of their supervisors and reps; Admin can slice across all roles — never beyond the
+  viewer's data scope.
+- **R-RPT-7** **Sales list financial summary.** The sales list shows, per sale, its
+  **Value, To-Collect (incl. interest), Collected and Pending** amounts plus its payment type
+  and lifecycle status — so staff see expected/collected/outstanding at a glance without
+  opening each record.
 
 ## 10. Administration
 - **R-ADM-1** Admin approves/activates pending users and sets role + reporting line.
@@ -141,6 +162,11 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 ## 12. Non-Functional Requirements
 - **R-NFR-1 Platform/cost:** PWA installable on mobile (Android/iOS "Add to Home Screen");
   deployed on Netlify; Supabase backend; Resend email; target **$0/month**.
+- **R-NFR-1a Mobile-first UX:** ~99% of use is on mobile, so the PWA must feel like a native
+  mobile app at phone resolutions — a fixed **bottom tab bar** for primary navigation, a
+  **sticky top bar**, **safe-area** (notch / home-indicator) handling, no input-focus zoom,
+  and **card-based** layouts replacing wide data tables on small screens. Desktop retains the
+  richer table layouts.
 - **R-NFR-2 Security:** all data access and authorisation enforced in the application/API
   layer using a server-side secret key; no public/anon database access; secrets never exposed
   to the client (`NEXT_PUBLIC_*` values are intentionally public).
