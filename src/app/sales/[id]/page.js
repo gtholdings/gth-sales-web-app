@@ -316,7 +316,7 @@ function SaleDetail() {
           <p className="text-gray-500 text-sm">{t('detail.no_activity')}</p>
         ) : (
           <ul className="space-y-3">
-            {events.map((e) => (
+            {[...events].reverse().map((e) => (
               <li key={e.id} className="border-l-2 border-gray-200 pl-3">
                 <div className="text-sm text-gray-900">
                   <span className="font-medium">{e.author_name}</span>{' '}

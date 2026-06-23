@@ -180,7 +180,9 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
 
     const baseRow = (insertedRows || []).find((r) => r.is_base);
     await supabaseAdmin.from('payment_events').insert([
-      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: notes || null, amount: baseAmount },
+      // Approval is a lifecycle action, not a payment — no amount (the down-payment
+      // amount is recorded on the `claim` event below).
+      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: notes || null },
       ...(changes.length
         ? [{
             sale_id: saleId, event_type: 'amend', author_id: user.id,
