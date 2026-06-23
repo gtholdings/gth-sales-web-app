@@ -197,12 +197,13 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 - Admin account: phone `0768971679`.
 
 ## Status / pending
-- ⏳ **RE-RUN `001_schema.sql`** — the status/role feature work changed the enums
-  (`sale_status` → pending/confirmed/in_progress/closed/rejected; `user_role` +
-  `field_officer`). The consolidated migration **drops & recreates everything** (wipes
-  data), so re-run it in the Supabase SQL editor, then re-seed the admin (below). New
-  feature E2E was logic-verified (status derivation + money rollup, 12/12) and build-clean;
-  full live E2E is pending this migration re-run.
+- ⏳ **Apply `002_pilot_status_field_officer.sql`** (NON-destructive) on any DB that
+  already has pilot data — it only remaps the two enums (`user_role` + `field_officer`;
+  `sale_status` approved/completed → confirmed/in_progress/closed) in place, preserving
+  all users & sales. Run it ONCE in the Supabase SQL editor. (Only a brand-new/empty DB
+  uses the full `001_schema.sql`, which drops & recreates everything.) New feature E2E was
+  logic-verified (status derivation + money rollup, 12/12) and build-clean; full live E2E
+  is pending this migration.
 - ✅ Consolidated `001_schema.sql` applied; `auth.users` cleared for a clean reset.
 - ✅ **E2E verified against the live DB** (21/21): phone login (all roles), rep proposal →
   supervisor amend+approve (amend event captures old→new), date clamp (Jan 31 → Feb 28 /
