@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
-import { splitInstallmentAmounts, installmentDueDates } from '@/lib/installments';
+import { useAppConfig } from '@/lib/useAppConfig';
+import { splitInstallmentAmounts, installmentDueDates, totalRepayable } from '@/lib/installments';
 import { formatRs } from '@/lib/format';
 
 // Sri Lankan NIC: 9 digits + V/X (old) or 12 digits (new)
@@ -27,6 +28,7 @@ const EMPTY = {
 export const SalesForm = ({ onSuccess, onClose }) => {
   const { token } = useAuth();
   const { t } = useT();
+  const { interestPercent, maxInstallments } = useAppConfig();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -38,12 +40,15 @@ export const SalesForm = ({ onSuccess, onClose }) => {
     setError('');
   };
 
-  // ── Auto-calculated figures ──────────────────────────
+  // ── Auto-calculated figures (interest from admin config) ──────────
   const total = parseFloat(formData.total_amount) || 0;
   const down = parseFloat(formData.down_payment) || 0;
   const loan = Math.max(Math.round((total - down) * 100) / 100, 0);
   const n = parseInt(formData.num_installments, 10) || 0;
-  const amounts = loan > 0 && n > 0 ? splitInstallmentAmounts(loan, n) : [];
+  const repay = loan > 0 && n > 0 ? totalRepayable(loan, n, interestPercent) : 0; // financed + interest
+  const interest = Math.round((repay - loan) * 100) / 100;
+  const collectible = Math.round((down + repay) * 100) / 100; // total customer pays
+  const amounts = loan > 0 && n > 0 ? splitInstallmentAmounts(repay, n) : [];
   const monthly = amounts.length ? amounts[0] : 0;
   const dueDates = formData.down_payment_date && n > 0 ? installmentDueDates(formData.down_payment_date, n) : [];
 
@@ -61,6 +66,7 @@ export const SalesForm = ({ onSuccess, onClose }) => {
     if (down < 0) return setError(t('form.err_down_neg'));
     if (down >= total) return setError(t('form.err_down_ge_total'));
     if (n < 1) return setError(t('form.err_installments'));
+    if (n > maxInstallments) return setError(t('form.err_max_installments', { max: maxInstallments }));
     if (!formData.down_payment_date) return setError(t('form.err_date'));
 
     try {
@@ -172,16 +178,34 @@ export const SalesForm = ({ onSuccess, onClose }) => {
               <p className="mt-1 text-xs text-gray-500">{t('form.loan_hint')}</p>
             </div>
 
+            {/* Interest info for the rep */}
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-3 text-sm">
+              {t('form.interest_info', { percent: interestPercent })}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="num_installments" className="block text-sm font-medium text-gray-700 mb-1">{t('form.num_installments')} *</label>
                 <input type="number" id="num_installments" name="num_installments" value={formData.num_installments}
-                  onChange={handleInputChange} placeholder="3" step="1" min="1" disabled={loading} className={inputCls} />
+                  onChange={handleInputChange} placeholder="3" step="1" min="1" max={maxInstallments} disabled={loading} className={inputCls} />
+                <p className="mt-1 text-xs text-gray-500">{t('form.max_installments_hint', { max: maxInstallments })}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.monthly')}</label>
                 <div className={readonlyCls}>{monthly ? formatRs(monthly) : '—'}</div>
                 <p className="mt-1 text-xs text-gray-500">{t('form.monthly_hint')}</p>
+              </div>
+            </div>
+
+            {/* Interest + total collectible */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.interest')}</label>
+                <div className={readonlyCls}>{interest ? formatRs(interest) : '—'}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('form.total_collectible')}</label>
+                <div className={readonlyCls}>{collectible ? formatRs(collectible) : '—'}</div>
               </div>
             </div>
 

@@ -5,14 +5,21 @@ import logger from '@/lib/logger';
 
 /**
  * POST /api/sales/[id]/installments/[installmentId]/claim
- * Any in-scope user marks a payable as paid -> goes to Finance for confirmation.
+ * A rep/supervisor/manager/admin in scope marks a payable as collected -> goes
+ * to the Credit Officer for confirmation. (Field Officers are read-only and the
+ * Credit Officer confirms rather than claims, so neither can claim here.)
  * Body: { paid_amount?: number, note?: string }
  */
-export const POST = withAuth(['any'], async (request, { user, supabaseAdmin, params }) => {
+export const POST = withAuth(['rep', 'supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin, params }) => {
   try {
     const { id: saleId, installmentId } = await params;
     const body = await request.json().catch(() => ({}));
     const { paid_amount, note } = body;
+
+    const comment = typeof note === 'string' ? note.trim() : '';
+    if (!comment) {
+      return NextResponse.json({ error: 'A comment is required' }, { status: 400 });
+    }
 
     // Scope: load sale, check visibility.
     const { data: sale, error: saleErr } = await supabaseAdmin
@@ -60,7 +67,7 @@ export const POST = withAuth(['any'], async (request, { user, supabaseAdmin, par
 
     await supabaseAdmin.from('payment_events').insert({
       sale_id: saleId, installment_id: installmentId, event_type: 'claim',
-      author_id: user.id, amount, note: note || null,
+      author_id: user.id, amount, note: comment,
     });
 
     logger.info('Payment claimed', { saleId, installmentId, by: user.id, amount });

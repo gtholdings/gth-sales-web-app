@@ -122,10 +122,29 @@ select:disabled {
   @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
 }
 
-/* PWA specific styles */
-@media (display-mode: standalone) {
+/* ── Mobile / PWA native-app feel ─────────────────────────────────────────
+   Safe-area helpers (notch / home-indicator). These resolve to 0 on devices
+   without insets, so they're harmless on desktop. The sticky top bar and the
+   fixed bottom tab bar each absorb their own inset, so their coloured
+   backgrounds bleed into the notch / home-indicator area. */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Keep page content clear of the fixed mobile bottom nav (mobile only). */
+@media (max-width: 767px) {
   body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: calc(3.75rem + env(safe-area-inset-bottom));
   }
+}
+
+/* Avoid iOS auto-zoom on focus: inputs must be >= 16px on small screens. */
+@media (max-width: 767px) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* Snappier tap feedback, no blue tap highlight — feels native. */
+a, button {
+  -webkit-tap-highlight-color: transparent;
 }

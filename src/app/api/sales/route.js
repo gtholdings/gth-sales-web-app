@@ -1,8 +1,38 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds, scopeSalesQuery } from '@/lib/scope-query';
+import { readPlanConfig } from '@/lib/config';
+import { totalRepayable, splitInstallmentAmounts } from '@/lib/installments';
+import { effectiveSaleStatus } from '@/lib/sale-status';
 import { formatRs } from '@/lib/format';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
+
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+/**
+ * Per-sale money rollup from its installment rows (down payment + schedule).
+ *  collectible_total — everything to collect (incl. interest)
+ *  collected_amount  — confirmed paid so far
+ *  pending_amount    — still to collect (collectible − collected)
+ * For sales without a schedule yet, collectible falls back to total_amount.
+ */
+function summarizeSale(sale) {
+  const rows = Array.isArray(sale.installments) ? sale.installments : [];
+  let collectible = 0;
+  let collected = 0;
+  for (const i of rows) {
+    const amt = Number(i.amount) || 0;
+    collectible += amt;
+    if (i.status === 'paid') collected += Number(i.paid_amount ?? amt) || 0;
+  }
+  if (rows.length === 0) collectible = Number(sale.total_amount) || 0;
+  return {
+    collectible_total: round2(collectible),
+    collected_amount: round2(collected),
+    pending_amount: round2(Math.max(0, collectible - collected)),
+    effective_status: effectiveSaleStatus(sale.status, rows),
+  };
+}
 
 /**
  * GET /api/sales
@@ -73,9 +103,13 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
       );
     }
 
+    // Roll up each sale's money + effective lifecycle status so the list view
+    // can show Total / Collected / Pending without opening every row.
+    const enriched = (sales || []).map((s) => ({ ...s, ...summarizeSale(s) }));
+
     return NextResponse.json(
       {
-        sales: sales || [],
+        sales: enriched,
         total: count || 0,
       },
       { status: 200 }
@@ -91,7 +125,8 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
 
 /**
  * POST /api/sales
- * Protected endpoint (rep only) - creates new sale
+ * Reps, supervisors, managers and admins can create a sale (they all do
+ * door-to-door selling at times). The creator becomes the owning rep_id.
  *
  * Headers: Authorization: Bearer {token}
  *
@@ -114,7 +149,7 @@ export const GET = withAuth(['any'], async (request, { user, supabaseAdmin }) =>
  *   ...
  * }
  */
-export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) => {
+export const POST = withAuth(['rep', 'supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin }) => {
   try {
     const body = await request.json();
     const {
@@ -153,6 +188,7 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
     // schedule rows are created here. The schedule is generated later when a
     // supervisor collects the down payment (the approve step). We persist the
     // proposed plan so the approval screen can pre-fill it.
+    const { interestPercent, maxInstallments } = await readPlanConfig(supabaseAdmin);
     const isInstallment = (payment_type || 'installment') === 'installment';
     const down = typeof base_amount === 'number' ? base_amount : 0;
     const n = parseInt(num_installments, 10) || 0;
@@ -167,10 +203,15 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
       if (n < 1) {
         return NextResponse.json({ error: 'Number of installments must be at least 1' }, { status: 400 });
       }
+      if (n > maxInstallments) {
+        return NextResponse.json({ error: `Number of installments cannot exceed ${maxInstallments}` }, { status: 400 });
+      }
       if (!down_payment_date || Number.isNaN(Date.parse(down_payment_date))) {
         return NextResponse.json({ error: 'Proposed down payment date is required' }, { status: 400 });
       }
-      installmentAmount = Math.round(((total_amount - down) / n) * 100) / 100;
+      // Per-installment amount includes the configured flat interest.
+      const repay = totalRepayable(total_amount - down, n, interestPercent);
+      installmentAmount = splitInstallmentAmounts(repay, n)[0];
     }
 
     // Create sale record. Store the rep's proposal in proposed_* AND seed the

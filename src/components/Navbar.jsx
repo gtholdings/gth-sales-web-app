@@ -21,16 +21,19 @@ export const Navbar = () => {
       { label: t('nav.sales'), href: '/sales' },
     ];
 
-    if (user.role === 'rep') {
+    if (['rep', 'supervisor', 'manager'].includes(user.role)) {
       items.push({ label: t('nav.new_sale'), href: '/sales/new' });
     }
 
-    if (['supervisor', 'manager', 'admin', 'credit_officer'].includes(user.role)) {
+    // Reps see their own performance; everyone above can drill down. Field
+    // officers are read-only on sales and have no reporting view.
+    if (['rep', 'supervisor', 'manager', 'admin', 'credit_officer'].includes(user.role)) {
       items.push({ label: t('nav.reports'), href: '/reports' });
     }
 
     if (user.role === 'admin') {
       items.push({ label: t('nav.admin'), href: '/admin' });
+      items.push({ label: t('nav.settings'), href: '/admin/settings' });
     }
 
     return items;
@@ -46,7 +49,7 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="bg-blue-800 text-white shadow-lg">
+    <nav className="bg-blue-800 text-white shadow-lg sticky top-0 z-40 pt-safe">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo/Brand */}

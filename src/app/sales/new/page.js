@@ -13,7 +13,7 @@ export default function NewSalePage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['rep']}>
+    <ProtectedRoute allowedRoles={['rep', 'supervisor', 'manager']}>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
 

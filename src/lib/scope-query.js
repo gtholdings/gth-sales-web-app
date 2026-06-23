@@ -10,7 +10,7 @@ import logger from './logger';
 /**
  * Get list of rep IDs visible to the current user based on their role.
  *
- * - admin/credit_officer → '*' (can see all)
+ * - admin/credit_officer/field_officer → '*' (can see all)
  * - rep → [user.id] (can only see their own)
  * - supervisor → [user.id, ...reps reporting to them]
  * - manager → [user.id, ...supervisors reporting to them, ...reps under those supervisors]
@@ -22,8 +22,9 @@ import logger from './logger';
 export const getVisibleRepIds = async (user, supabaseAdmin) => {
   const { id: userId, role } = user;
 
-  // Admin and credit officers can see all reps
-  if (['admin', 'credit_officer'].includes(role)) {
+  // Admin, credit officers and field officers can see all reps.
+  // (Field Officer is read-only/comment-only — enforced at the route + UI layer.)
+  if (['admin', 'credit_officer', 'field_officer'].includes(role)) {
     return '*';
   }
 

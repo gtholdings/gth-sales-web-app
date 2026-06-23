@@ -1,13 +1,16 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds } from '@/lib/scope-query';
-import { splitInstallmentAmounts, installmentDueDates } from '@/lib/installments';
+import { readPlanConfig } from '@/lib/config';
+import { splitInstallmentAmounts, installmentDueDates, totalRepayable } from '@/lib/installments';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
 /**
  * POST /api/sales/[id]/approve
  * Approve (and configure the installment schedule) or reject a pending sale.
- * Gated to supervisor / manager / admin, scoped to their visible reps.
+ * This is the field-installation step: down payment collected, plan amendable.
+ * Gated to rep / supervisor / manager / admin, scoped to their visible reps —
+ * a rep can therefore finalize their OWN sale when they attend the installation.
  *
  * Body (approve):
  *   { action: 'approve',
@@ -23,7 +26,7 @@ import logger from '@/lib/logger';
  *   - rows 1..N: monthly schedule, cents-exact amounts
  * and writes an `approve_sale` / `reject_sale` audit event.
  */
-export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin, params }) => {
+export const POST = withAuth(['rep', 'supervisor', 'manager', 'admin'], async (request, { user, supabaseAdmin, params }) => {
   try {
     const { id: saleId } = await params;
     const body = await request.json();
@@ -34,6 +37,10 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     }
     if (action !== 'approve' && action !== 'reject') {
       return NextResponse.json({ error: 'Invalid action. Must be "approve" or "reject"' }, { status: 400 });
+    }
+    const comment = typeof notes === 'string' ? notes.trim() : '';
+    if (!comment) {
+      return NextResponse.json({ error: 'A comment is required' }, { status: 400 });
     }
 
     // Fetch the sale + scope check.
@@ -67,7 +74,7 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     if (action === 'reject') {
       const { data: updated, error: updErr } = await supabaseAdmin
         .from('dialog_tv_sales')
-        .update({ status: 'rejected', ...(notes !== undefined ? { notes } : {}), updated_at: nowIso })
+        .update({ status: 'rejected', notes: comment, updated_at: nowIso })
         .eq('id', saleId)
         .select()
         .single();
@@ -76,7 +83,7 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
         return NextResponse.json({ error: 'Failed to reject sale' }, { status: 500 });
       }
       await supabaseAdmin.from('payment_events').insert({
-        sale_id: saleId, event_type: 'reject_sale', author_id: user.id, note: notes || null,
+        sale_id: saleId, event_type: 'reject_sale', author_id: user.id, note: comment,
       });
       logger.info('Sale rejected', { saleId, by: user.id });
       return NextResponse.json(updated, { status: 200 });
@@ -90,6 +97,8 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     let downPaymentDate = collectionDate;
     let perInstallment = null;
 
+    const { interestPercent, maxInstallments } = await readPlanConfig(supabaseAdmin);
+
     if (sale.payment_type === 'installment') {
       const n = parseInt(number_of_installments, 10);
       baseAmount = Number(base_amount);
@@ -97,6 +106,9 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
 
       if (!Number.isInteger(n) || n < 1) {
         return NextResponse.json({ error: 'number_of_installments must be an integer >= 1' }, { status: 400 });
+      }
+      if (n > maxInstallments) {
+        return NextResponse.json({ error: `Number of installments cannot exceed ${maxInstallments}` }, { status: 400 });
       }
       if (!(baseAmount >= 0) || baseAmount >= total) {
         return NextResponse.json({ error: 'base_amount must be between 0 and the total amount' }, { status: 400 });
@@ -106,7 +118,8 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
       }
 
       numInstallments = n;
-      const remaining = Math.round((total - baseAmount) * 100) / 100;
+      // Financed amount + configured flat interest, split across the installments.
+      const remaining = totalRepayable(total - baseAmount, n, interestPercent);
       const amounts = splitInstallmentAmounts(remaining, n);
       const dueDates = installmentDueDates(downPaymentDate, n); // k=1..N months after the down payment
       perInstallment = amounts[0];
@@ -159,14 +172,16 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     const { data: updated, error: updErr } = await supabaseAdmin
       .from('dialog_tv_sales')
       .update({
-        status: 'approved',
+        // 'confirmed' = schedule generated + down payment claimed; it advances to
+        // in_progress / closed automatically as payments are confirmed.
+        status: 'confirmed',
         num_installments: numInstallments,
         base_amount: baseAmount,
         down_payment_date: sale.payment_type === 'installment' ? downPaymentDate : null,
         installment_amount: perInstallment,
         approved_by: user.id,
         approved_at: nowIso,
-        ...(notes !== undefined ? { notes } : {}),
+        notes: comment,
         updated_at: nowIso,
       })
       .eq('id', saleId)
@@ -180,7 +195,9 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
 
     const baseRow = (insertedRows || []).find((r) => r.is_base);
     await supabaseAdmin.from('payment_events').insert([
-      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: notes || null, amount: baseAmount },
+      // Approval is a lifecycle action, not a payment — no amount (the down-payment
+      // amount is recorded on the `claim` event below).
+      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: comment },
       ...(changes.length
         ? [{
             sale_id: saleId, event_type: 'amend', author_id: user.id,

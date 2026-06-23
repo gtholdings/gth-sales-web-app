@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { appTodayYMD } from '@/lib/datetime';
+import { recomputeSaleStatus } from '@/lib/sale-status';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
@@ -21,6 +22,10 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
 
     if (action !== 'confirm' && action !== 'reject') {
       return NextResponse.json({ error: 'Invalid action. Must be "confirm" or "reject"' }, { status: 400 });
+    }
+    const comment = typeof note === 'string' ? note.trim() : '';
+    if (!comment) {
+      return NextResponse.json({ error: 'A comment is required' }, { status: 400 });
     }
 
     const { data: item, error: itemErr } = await supabaseAdmin
@@ -44,7 +49,7 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
           paid_date: appTodayYMD(),
           confirmed_by: user.id,
           confirmed_at: nowIso,
-          ...(note !== undefined ? { finance_note: note } : {}),
+          finance_note: comment,
           updated_at: nowIso,
         })
         .eq('id', installmentId)
@@ -57,16 +62,11 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
 
       await supabaseAdmin.from('payment_events').insert({
         sale_id: saleId, installment_id: installmentId, event_type: 'confirm',
-        author_id: user.id, amount, note: note || null,
+        author_id: user.id, amount, note: comment,
       });
 
-      // If all payables are paid, complete the sale.
-      const { data: remaining } = await supabaseAdmin
-        .from('installments').select('id').eq('sale_id', saleId).neq('status', 'paid');
-      if (!remaining || remaining.length === 0) {
-        await supabaseAdmin
-          .from('dialog_tv_sales').update({ status: 'completed', updated_at: nowIso }).eq('id', saleId);
-      }
+      // Advance the sale lifecycle from payment state (confirmed -> in_progress -> closed).
+      await recomputeSaleStatus(saleId, supabaseAdmin);
 
       logger.info('Payment confirmed', { saleId, installmentId, by: user.id, amount });
       return NextResponse.json(updated, { status: 200 });
@@ -80,7 +80,7 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
         claimed_by: null,
         claimed_at: null,
         paid_amount: null,
-        finance_note: note || null,
+        finance_note: comment,
         updated_at: nowIso,
       })
       .eq('id', installmentId)
@@ -93,8 +93,11 @@ export const POST = withAuth(['credit_officer', 'admin'], async (request, { user
 
     await supabaseAdmin.from('payment_events').insert({
       sale_id: saleId, installment_id: installmentId, event_type: 'reject',
-      author_id: user.id, note: note || null,
+      author_id: user.id, note: comment,
     });
+
+    // A rejection may move the sale back (closed/in_progress -> in_progress/confirmed).
+    await recomputeSaleStatus(saleId, supabaseAdmin);
 
     logger.info('Payment claim rejected', { saleId, installmentId, by: user.id });
     return NextResponse.json(updated, { status: 200 });

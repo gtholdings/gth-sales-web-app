@@ -3,12 +3,13 @@
 import { formatRs } from '@/lib/format';
 import { useT } from '@/contexts/LanguageContext';
 
-const StatCard = ({ title, value, icon, color = 'blue' }) => {
+const StatCard = ({ title, value, icon, color = 'blue', subtitle }) => {
   const colorClasses = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
     green: 'bg-green-50 border-green-200 text-green-700',
     yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
     purple: 'bg-purple-50 border-purple-200 text-purple-700',
+    indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700',
   };
 
   const iconColorClasses = {
@@ -16,17 +17,19 @@ const StatCard = ({ title, value, icon, color = 'blue' }) => {
     green: 'bg-green-100 text-green-600',
     yellow: 'bg-yellow-100 text-yellow-600',
     purple: 'bg-purple-100 text-purple-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
   };
 
   return (
-    <div className={`${colorClasses[color]} border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
+    <div className={`${colorClasses[color]} border rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">{title}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">{value}</p>
+          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
         </div>
         {icon && (
-          <div className={`${iconColorClasses[color]} p-3 rounded-lg`}>
+          <div className={`${iconColorClasses[color]} p-2.5 sm:p-3 rounded-lg shrink-0`}>
             {icon}
           </div>
         )}
@@ -65,18 +68,25 @@ export const StatsCards = ({ stats = {} }) => {
   const {
     total_sales = 0,
     total_revenue = 0,
+    total_collectible = 0,
+    success_rate = 0,
+    won_sales = 0,
     by_status = {},
   } = stats;
 
   const pending = by_status.pending || 0;
-  const completed = by_status.completed || 0;
+  const inProgress = by_status.in_progress || 0;
+  const closed = by_status.closed || 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
       <StatCard title={t('stats.total_sales')} value={total_sales.toString()} icon={<SalesIcon />} color="blue" />
-      <StatCard title={t('stats.total_revenue')} value={formatRs(total_revenue)} icon={<RevenueIcon />} color="green" />
-      <StatCard title={t('stats.pending')} value={pending.toString()} icon={<PendingIcon />} color="yellow" />
-      <StatCard title={t('stats.completed')} value={completed.toString()} icon={<CompletedIcon />} color="purple" />
+      <StatCard title={t('stats.success_rate')} value={`${success_rate}%`} icon={<CompletedIcon />} color="green"
+        subtitle={t('stats.success_rate_hint', { won: won_sales, total: total_sales })} />
+      <StatCard title={t('stats.total_revenue')} value={formatRs(total_revenue)} icon={<RevenueIcon />} color="purple" />
+      <StatCard title={t('stats.total_collectible')} value={formatRs(total_collectible)} icon={<RevenueIcon />} color="indigo" />
+      <StatCard title={t('stats.in_progress')} value={inProgress.toString()} icon={<PendingIcon />} color="yellow" />
+      <StatCard title={t('stats.closed')} value={closed.toString()} icon={<CompletedIcon />} color="green" />
     </div>
   );
 };

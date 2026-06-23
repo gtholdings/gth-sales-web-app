@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { StatsCards } from '@/components/StatsCards';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
 import { formatRs } from '@/lib/format';
@@ -15,10 +16,12 @@ const RANGES = [
 ];
 
 function ReportsView() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { t } = useT();
+  const isRep = user?.role === 'rep';
   const [filters, setFilters] = useState({ range: 'MTD', groupBy: 'month', from: '', to: '', scope: '' });
   const [report, setReport] = useState(null);
+  const [stats, setStats] = useState(null);
   const [defaulters, setDefaulters] = useState(null);
   const [managers, setManagers] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
@@ -26,19 +29,21 @@ function ReportsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Load filter dropdown sources once.
+  // Load filter dropdown sources once (reps have no subordinates to filter by).
   useEffect(() => {
+    if (isRep) return;
     (async () => {
       try {
+        const auth = { headers: { Authorization: `Bearer ${token}` } };
         const [m, t, r] = await Promise.all([
-          fetch('/api/profiles/managers'), fetch('/api/profiles/supervisors'), fetch('/api/profiles/reps'),
+          fetch('/api/profiles/managers', auth), fetch('/api/profiles/supervisors', auth), fetch('/api/profiles/reps', auth),
         ]);
         if (m.ok) setManagers((await m.json()).managers || []);
         if (t.ok) setSupervisors((await t.json()).supervisors || []);
         if (r.ok) setReps((await r.json()).reps || []);
       } catch { /* non-fatal */ }
     })();
-  }, []);
+  }, [isRep, token]);
 
   // Build the query string from filters. scope = "type:id".
   const queryString = useCallback(() => {
@@ -58,12 +63,12 @@ function ReportsView() {
     try {
       setLoading(true); setError('');
       const qs = queryString();
-      const [rep, def] = await Promise.all([
-        fetch(`/api/sales/reports?${qs}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/sales/reports/defaulters?${qs}`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      if (rep.ok) setReport((await rep.json()).report); else setError('Failed to load report');
-      if (def.ok) setDefaulters(await def.json());
+      const reqs = [fetch(`/api/sales/reports?${qs}`, { headers: { Authorization: `Bearer ${token}` } })];
+      // Reps don't manage defaulters, so skip that fetch for them.
+      if (!isRep) reqs.push(fetch(`/api/sales/reports/defaulters?${qs}`, { headers: { Authorization: `Bearer ${token}` } }));
+      const [rep, def] = await Promise.all(reqs);
+      if (rep.ok) { const j = await rep.json(); setReport(j.report); setStats(j.stats || null); } else setError('Failed to load report');
+      if (def && def.ok) setDefaulters(await def.json());
     } catch { setError('An error occurred while loading reports'); }
     finally { setLoading(false); }
   }, [token, filters, queryString]);
@@ -96,6 +101,13 @@ function ReportsView() {
 
       {error && <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">{error}</div>}
 
+      {/* Headline metrics (incl. success rate) */}
+      {stats && (
+        <div className="mb-6">
+          <StatsCards stats={stats} />
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-end">
         <div>
@@ -124,6 +136,7 @@ function ReportsView() {
             <option value="week">{t('reports.week')}</option>
           </select>
         </div>
+        {!isRep && (
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">{t('reports.filter_by')}</label>
           <select value={filters.scope} onChange={(e) => set('scope', e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg min-w-[12rem]">
@@ -145,12 +158,15 @@ function ReportsView() {
             )}
           </select>
         </div>
+        )}
         <button onClick={() => exportXlsx('summary')} className="ml-auto bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg">
           {t('reports.export_summary')}
         </button>
-        <button onClick={() => exportXlsx('defaulters')} className="bg-green-700 hover:bg-green-800 text-white font-medium px-4 py-2 rounded-lg">
-          {t('reports.export_defaulters')}
-        </button>
+        {!isRep && (
+          <button onClick={() => exportXlsx('defaulters')} className="bg-green-700 hover:bg-green-800 text-white font-medium px-4 py-2 rounded-lg">
+            {t('reports.export_defaulters')}
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -167,6 +183,8 @@ function ReportsView() {
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('reports.col_period')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_num_sales')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_confirmed')}</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_collectible')}</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_interest')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_cumulative')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_paid')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_awaiting')}</th>
@@ -176,12 +194,14 @@ function ReportsView() {
                 </thead>
                 <tbody>
                   {(report?.periods || []).length === 0 ? (
-                    <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">{t('reports.no_data')}</td></tr>
+                    <tr><td colSpan={10} className="px-4 py-6 text-center text-gray-500">{t('reports.no_data')}</td></tr>
                   ) : report.periods.map((p) => (
                     <tr key={p.period} className="border-b border-gray-200">
                       <td className="px-4 py-3 font-medium text-gray-900">{p.period}</td>
                       <td className="px-4 py-3 text-right">{p.num_sales}</td>
                       <td className="px-4 py-3 text-right">{formatRs(p.confirmed_sale_total)}</td>
+                      <td className="px-4 py-3 text-right text-indigo-700">{formatRs(p.collectible_total)}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatRs(p.interest_total)}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{formatRs(p.cumulative_confirmed_total)}</td>
                       <td className="px-4 py-3 text-right text-green-700">{formatRs(p.amount_paid)}</td>
                       <td className="px-4 py-3 text-right text-amber-700">{formatRs(p.amount_awaiting)}</td>
@@ -194,6 +214,8 @@ function ReportsView() {
                       <td className="px-4 py-3">{t('reports.total')}</td>
                       <td className="px-4 py-3 text-right">{report.totals.num_sales}</td>
                       <td className="px-4 py-3 text-right">{formatRs(report.totals.confirmed_sale_total)}</td>
+                      <td className="px-4 py-3 text-right text-indigo-700">{formatRs(report.totals.collectible_total)}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatRs(report.totals.interest_total)}</td>
                       <td className="px-4 py-3"></td>
                       <td className="px-4 py-3 text-right text-green-700">{formatRs(report.totals.amount_paid)}</td>
                       <td className="px-4 py-3 text-right text-amber-700">{formatRs(report.totals.amount_awaiting)}</td>
@@ -207,6 +229,7 @@ function ReportsView() {
           </div>
 
           {/* Defaulters */}
+          {!isRep && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <h2 className="text-lg font-bold text-gray-900 p-4 border-b border-gray-200">
               {t('reports.defaulters')} {defaulters && <span className="text-sm font-normal text-gray-500">{t('reports.defaulters_total', { amount: formatRs(defaulters.total_defaulted_amount) })}</span>}
@@ -236,6 +259,7 @@ function ReportsView() {
               </table>
             </div>
           </div>
+          )}
         </>
       )}
     </main>
@@ -244,7 +268,7 @@ function ReportsView() {
 
 export default function ReportsPage() {
   return (
-    <ProtectedRoute allowedRoles={['supervisor', 'manager', 'admin', 'credit_officer']}>
+    <ProtectedRoute allowedRoles={['rep', 'supervisor', 'manager', 'admin', 'credit_officer']}>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
         <ReportsView />

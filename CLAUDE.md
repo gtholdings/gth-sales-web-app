@@ -37,9 +37,18 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **Roles:** `rep, supervisor, manager, admin, credit_officer` ("supervisor"
   replaced the old "team_lead" everywhere incl. the DB enum). Hierarchy via
   `profiles.reports_to`: rep → supervisor → manager → admin.
+- **Roles** = `rep, supervisor, manager, admin, credit_officer, field_officer`.
+  **Field Officer** = cross-team field installer: **views ALL sales read-only,
+  comments only** (no create/approve/claim) — covers an install when the owning
+  team is away, then phones them to make plan changes. ([sale-status.js](src/lib/sale-status.js))
 - **Scope** ([scope-query.js](src/lib/scope-query.js)): `getVisibleRepIds` → `'*'`
-  for admin/credit_officer, `[self]` rep, `[self,...reps]` supervisor,
+  for admin/credit_officer/**field_officer**, `[self]` rep, `[self,...reps]` supervisor,
   `[self,...supervisors,...reps]` manager. `scopeSalesQuery` applies `.in('rep_id', ids)`.
+- **Who can do what:** create a sale = `rep/supervisor/manager/admin` (creator becomes
+  `rep_id` — supervisors/managers also sell door-to-door); finalize/approve (the install
+  + down-payment step, plan amendable) = `rep/supervisor/manager/admin` **scoped** (so a
+  **rep can install their own sale**); claim a payment = `rep/supervisor/manager/admin`
+  scoped; confirm/reject a payment = `credit_officer/admin`; comment = any in-scope.
 - **Login = mobile phone** (`07XXXXXXXX`, strict), implemented over Supabase
   email+password via a synthetic email `<phone>@phone.gthsales.local`
   ([phone.js](src/lib/phone.js) `toAuthEmail`) — native phone provider is disabled.
@@ -55,17 +64,34 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   are NOT translated; Sinhala data entry works natively (Unicode TEXT columns).
 
 ## Sale lifecycle (core business rules)
-- **Reps never collect money.** The rep records the sale + a **proposed plan**
-  (total, down payment, # installments, **proposed down-payment date**); status `pending`.
-- A **supervisor/manager** confirms a technician **installation date** (offline),
-  then on the approve screen enters it as the **down-payment date**, and may amend
-  the down-payment **date, amount, and # installments**. Approving = collecting the
-  down payment → generates the schedule. **Any change vs the rep's `proposed_*` is
+- **Status enum = `pending → confirmed → in_progress → closed` (+ `rejected`).**
+  `confirmed`/`in_progress`/`closed` are **derived from payment state** — see
+  [sale-status.js](src/lib/sale-status.js) `deriveScheduledStatus`/`recomputeSaleStatus`:
+  schedule exists + 0 paid → `confirmed` ("Confirmed – Pending Installation");
+  ≥1 confirmed-paid → `in_progress`; all confirmed-paid → `closed`. The confirm/reject
+  payment routes call `recomputeSaleStatus`, so status always tracks reality.
+  (Replaced the old `approved`/`completed`.)
+- The rep records the sale + a **proposed plan** (total, down payment, # installments,
+  **proposed down-payment date**); status `pending`.
+- A **rep/supervisor/manager** attends the install, confirms the **installation date**
+  as the **down-payment date** on the approve screen, may amend the down-payment
+  **date, amount, and # installments**, then approves → status `confirmed`, schedule
+  generated, down payment auto-claimed. **Any change vs the rep's `proposed_*` is
   logged as an `amend` event** (shown in the activity timeline).
 - **Schedule:** down payment (installment 0) is due on the down-payment date and is
   created **claimed (awaiting_confirmation)** by the supervisor; installment k (1..N)
   is due `addMonths(downPaymentDate, k)` — same day-of-month, **clamped to month-end**
   when missing (Jan 31→Feb 28; May 31→Jun 30). See [installments.js](src/lib/installments.js).
+- **Interest:** a flat `interest% × N` is added to the financed amount; per-installment =
+  `((total − down) × (1 + (interest%/100) × N)) / N` (`totalRepayable()` + `splitInstallmentAmounts()`).
+  Rate + **max installments** are admin-configurable (app_config `installment_interest_percent`,
+  `max_installments`) — read server-side via [config.js](src/lib/config.js) `readPlanConfig()`,
+  client-side via [useAppConfig.js](src/lib/useAppConfig.js). Edited at **/admin/settings**.
+- **Money two ways:** Total Value (the sale) vs **Total Collectible = down + installments
+  (incl. interest)**. Reports/dashboard surface `collectible_total` + `interest_total`.
+- **Comment required** on approve/reject/claim/confirm (enforced server-side + UI).
+- **Every state-changing action requires a comment** (approve/reject sale, claim, finance confirm/reject).
+  Activity timeline is newest-first; the rep's original proposal is the earliest entry.
 - **The credit officer** confirms each payment against the bank (claim → confirm/reject).
 - Every sale is an installment plan (no full-payment toggle in the form).
 
@@ -75,7 +101,11 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   reports_to, status)`.
 - `dialog_tv_sales(rep_id, customer_*, payment_type, total_amount, base_amount,
   num_installments, installment_amount, down_payment_date, proposed_base_amount,
-  proposed_num_installments, proposed_down_payment_date, status, approved_by/at, notes)`.
+  proposed_num_installments, proposed_down_payment_date, status
+  [pending|confirmed|in_progress|closed|rejected], approved_by/at, notes)`.
+  `user_role` now includes `field_officer`. GET `/api/sales` enriches each row with
+  `collectible_total/collected_amount/pending_amount/effective_status` (rolled up from
+  installments) so the list shows Total/Collected/Pending without opening each sale.
 - `installments(sale_id, installment_number (0=base, is_base), amount, paid_amount,
   due_date, paid_date, status [pending|awaiting_confirmation|paid|overdue|defaulted],
   claimed_by/at, confirmed_by/at, finance_note)`. Created at APPROVAL (no triggers).
@@ -94,9 +124,19 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   activity timeline; routes `…/installments/[id]/{claim,confirm}`, `…/comments`, `GET …/[id]`.
 - **Reminders:** [notify.js](src/lib/notify.js) + secured [cron route](src/app/api/cron/installment-reminders/route.js)
   (`x-cron-secret`), daily via `.github/workflows/installment-reminders.yml` (secrets `APP_URL`, `CRON_SECRET`).
-- **Reports:** [reports.js](src/lib/reports.js) + [excel.js](src/lib/excel.js); routes
-  `…/reports`, `…/reports/defaulters`, `…/reports/export`; filter dropdowns from
-  `/api/profiles/{supervisors,managers,reps}`.
+- **Reports / per-user metrics:** [reports.js](src/lib/reports.js) + [excel.js](src/lib/excel.js);
+  routes `…/reports`, `…/reports/defaulters`, `…/reports/export`; filter dropdowns from
+  `/api/profiles/{supervisors,managers,reps}`. `/api/sales/reports` is open to **rep**
+  too (scoped to self) and returns `success_rate`/`won_sales` + `by_status`
+  (pending/confirmed/in_progress/closed/rejected). The Reports page shows
+  [StatsCards](src/components/StatsCards.jsx) headline metrics; reps see own only,
+  supervisor/manager/admin drill into subordinates via the scope filter.
+- **Mobile / PWA native feel:** sticky top [Navbar](src/components/Navbar.jsx) (+ `pt-safe`),
+  a mobile-only fixed bottom tab bar ([BottomNav.jsx](src/components/BottomNav.jsx), role-based,
+  mounted in [layout.js](src/app/layout.js)), `pt-safe`/`pb-safe` + bottom-nav body padding
+  + 16px input font (no iOS zoom) in [globals.css](src/app/globals.css). Wide tables
+  ([SalesTable.jsx](src/components/SalesTable.jsx), sale-detail payments) render as **cards
+  on mobile, tables on `md:`**.
 
 ## Backups & ops
 **Supabase Free has NO automated backups and NO restore**, and projects **pause
@@ -157,6 +197,13 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 - Admin account: phone `0768971679`.
 
 ## Status / pending
+- ⏳ **Apply `002_pilot_status_field_officer.sql`** (NON-destructive) on any DB that
+  already has pilot data — it only remaps the two enums (`user_role` + `field_officer`;
+  `sale_status` approved/completed → confirmed/in_progress/closed) in place, preserving
+  all users & sales. Run it ONCE in the Supabase SQL editor. (Only a brand-new/empty DB
+  uses the full `001_schema.sql`, which drops & recreates everything.) New feature E2E was
+  logic-verified (status derivation + money rollup, 12/12) and build-clean; full live E2E
+  is pending this migration.
 - ✅ Consolidated `001_schema.sql` applied; `auth.users` cleared for a clean reset.
 - ✅ **E2E verified against the live DB** (21/21): phone login (all roles), rep proposal →
   supervisor amend+approve (amend event captures old→new), date clamp (Jan 31 → Feb 28 /
