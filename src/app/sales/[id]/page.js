@@ -82,21 +82,32 @@ function SaleDetail() {
     return res.json();
   };
 
-  const submitApproval = (action) => act(async () => {
-    const body = action === 'approve'
-      ? {
-          action: 'approve',
-          number_of_installments: Number(appForm.number_of_installments),
-          base_amount: Number(appForm.base_amount || 0),
-          down_payment_date: appForm.down_payment_date,
-          notes: appForm.notes || undefined,
-        }
-      : { action: 'reject', notes: appForm.notes || undefined };
-    await post(`/api/sales/${id}/approve`, body);
-  });
+  const submitApproval = (action) => {
+    const note = appForm.notes.trim();
+    if (!note) { setError(t('detail.comment_required')); return; }
+    act(async () => {
+      const body = action === 'approve'
+        ? {
+            action: 'approve',
+            number_of_installments: Number(appForm.number_of_installments),
+            base_amount: Number(appForm.base_amount || 0),
+            down_payment_date: appForm.down_payment_date,
+            notes: note,
+          }
+        : { action: 'reject', notes: note };
+      await post(`/api/sales/${id}/approve`, body);
+    });
+  };
 
-  const claim = (instId) => act(() => post(`/api/sales/${id}/installments/${instId}/claim`, {}));
-  const confirm = (instId, action) => act(() => post(`/api/sales/${id}/installments/${instId}/confirm`, { action }));
+  // Claim ("mark paid") and finance confirm/reject all require a comment.
+  const withComment = (fn) => {
+    const note = prompt(t('detail.comment_prompt'));
+    if (note == null) return;                 // cancelled
+    if (!note.trim()) { setError(t('detail.comment_required')); return; }
+    fn(note.trim());
+  };
+  const claim = (instId) => withComment((note) => act(() => post(`/api/sales/${id}/installments/${instId}/claim`, { note })));
+  const confirm = (instId, action) => withComment((note) => act(() => post(`/api/sales/${id}/installments/${instId}/confirm`, { action, note })));
   const addItemComment = (instId, note) => act(() => post(`/api/sales/${id}/comments`, { note, installment_id: instId }));
   const addSaleComment = () => act(async () => { await post(`/api/sales/${id}/comments`, { note: commentText }); setCommentText(''); });
 
@@ -221,7 +232,7 @@ function SaleDetail() {
           )}
 
           <textarea value={appForm.notes} onChange={(e) => setAppForm((p) => ({ ...p, notes: e.target.value }))}
-            placeholder={t('common.notes_optional')} rows="2" className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
+            placeholder={t('detail.comment_field')} rows="2" required className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4" />
           <div className="flex gap-3">
             <button disabled={busy} onClick={() => submitApproval('approve')}
               className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-medium px-5 py-2 rounded-lg">

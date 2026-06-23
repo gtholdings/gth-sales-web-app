@@ -14,6 +14,11 @@ export const POST = withAuth(['any'], async (request, { user, supabaseAdmin, par
     const body = await request.json().catch(() => ({}));
     const { paid_amount, note } = body;
 
+    const comment = typeof note === 'string' ? note.trim() : '';
+    if (!comment) {
+      return NextResponse.json({ error: 'A comment is required' }, { status: 400 });
+    }
+
     // Scope: load sale, check visibility.
     const { data: sale, error: saleErr } = await supabaseAdmin
       .from('dialog_tv_sales').select('id, rep_id').eq('id', saleId).single();
@@ -60,7 +65,7 @@ export const POST = withAuth(['any'], async (request, { user, supabaseAdmin, par
 
     await supabaseAdmin.from('payment_events').insert({
       sale_id: saleId, installment_id: installmentId, event_type: 'claim',
-      author_id: user.id, amount, note: note || null,
+      author_id: user.id, amount, note: comment,
     });
 
     logger.info('Payment claimed', { saleId, installmentId, by: user.id, amount });

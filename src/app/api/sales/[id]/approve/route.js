@@ -35,6 +35,10 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     if (action !== 'approve' && action !== 'reject') {
       return NextResponse.json({ error: 'Invalid action. Must be "approve" or "reject"' }, { status: 400 });
     }
+    const comment = typeof notes === 'string' ? notes.trim() : '';
+    if (!comment) {
+      return NextResponse.json({ error: 'A comment is required' }, { status: 400 });
+    }
 
     // Fetch the sale + scope check.
     const { data: sale, error: fetchError } = await supabaseAdmin
@@ -67,7 +71,7 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     if (action === 'reject') {
       const { data: updated, error: updErr } = await supabaseAdmin
         .from('dialog_tv_sales')
-        .update({ status: 'rejected', ...(notes !== undefined ? { notes } : {}), updated_at: nowIso })
+        .update({ status: 'rejected', notes: comment, updated_at: nowIso })
         .eq('id', saleId)
         .select()
         .single();
@@ -76,7 +80,7 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
         return NextResponse.json({ error: 'Failed to reject sale' }, { status: 500 });
       }
       await supabaseAdmin.from('payment_events').insert({
-        sale_id: saleId, event_type: 'reject_sale', author_id: user.id, note: notes || null,
+        sale_id: saleId, event_type: 'reject_sale', author_id: user.id, note: comment,
       });
       logger.info('Sale rejected', { saleId, by: user.id });
       return NextResponse.json(updated, { status: 200 });
@@ -166,7 +170,7 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
         installment_amount: perInstallment,
         approved_by: user.id,
         approved_at: nowIso,
-        ...(notes !== undefined ? { notes } : {}),
+        notes: comment,
         updated_at: nowIso,
       })
       .eq('id', saleId)
@@ -182,7 +186,7 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     await supabaseAdmin.from('payment_events').insert([
       // Approval is a lifecycle action, not a payment — no amount (the down-payment
       // amount is recorded on the `claim` event below).
-      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: notes || null },
+      { sale_id: saleId, event_type: 'approve_sale', author_id: user.id, note: comment },
       ...(changes.length
         ? [{
             sale_id: saleId, event_type: 'amend', author_id: user.id,
