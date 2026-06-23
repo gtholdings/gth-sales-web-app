@@ -106,7 +106,7 @@ async function fetchSales(supabaseAdmin, repIds, range) {
 
 function emptyBucket(period) {
   return {
-    period, num_sales: 0, confirmed_sale_total: 0,
+    period, num_sales: 0, confirmed_sale_total: 0, collectible_total: 0,
     amount_paid: 0, amount_awaiting: 0, amount_pending: 0, amount_defaulted: 0,
   };
 }
@@ -137,6 +137,7 @@ export async function buildSalesReport({ supabaseAdmin, repIds, range, groupBy =
     const eff = installmentDisplayStatus(it, threshold, today);
     const amt = Number(it.amount || 0);
     const paid = Number(it.paid_amount || 0);
+    b.collectible_total += amt; // total to collect incl. interest (down payment + installments)
     if (eff === 'paid') b.amount_paid += paid || amt;
     else if (eff === 'awaiting_confirmation') b.amount_awaiting += paid || amt;
     else if (eff === 'defaulted') b.amount_defaulted += amt - paid;
@@ -148,17 +149,21 @@ export async function buildSalesReport({ supabaseAdmin, repIds, range, groupBy =
   for (const p of periods) {
     cumulative += p.confirmed_sale_total;
     p.cumulative_confirmed_total = cumulative;
+    // Interest earned = collectible (incl. interest) − the plain sale value.
+    p.interest_total = Math.max(0, Math.round((p.collectible_total - p.confirmed_sale_total) * 100) / 100);
   }
 
   const totals = periods.reduce((t, p) => {
     t.num_sales += p.num_sales;
     t.confirmed_sale_total += p.confirmed_sale_total;
+    t.collectible_total += p.collectible_total;
+    t.interest_total += p.interest_total;
     t.amount_paid += p.amount_paid;
     t.amount_awaiting += p.amount_awaiting;
     t.amount_pending += p.amount_pending;
     t.amount_defaulted += p.amount_defaulted;
     return t;
-  }, { num_sales: 0, confirmed_sale_total: 0, amount_paid: 0, amount_awaiting: 0, amount_pending: 0, amount_defaulted: 0 });
+  }, { num_sales: 0, confirmed_sale_total: 0, collectible_total: 0, interest_total: 0, amount_paid: 0, amount_awaiting: 0, amount_pending: 0, amount_defaulted: 0 });
 
   return { range: { start: range.startYmd, end: range.endExclYmd, groupBy }, periods, totals };
 }

@@ -28,7 +28,20 @@ const si = {
   'nav.new_sale': 'නව විකුණුම',
   'nav.reports': 'වාර්තා',
   'nav.admin': 'පරිපාලනය',
+  'nav.settings': 'සැකසුම්',
   'nav.logout': 'පිටවීම',
+
+  // admin settings
+  'settings.title': 'සැකසුම්',
+  'settings.subtitle': 'මුළු පද්ධතිය පුරා භාවිතා වන වාරික සැලසුම් වින්‍යාසය.',
+  'settings.interest': 'වාරික පොලිය (%)',
+  'settings.interest_hint': 'ණය ගත් මුදලට (මුළු වටිනාකම − ආරම්භක ගෙවීම) එක් වාරිකයකට යෙදෙන ස්ථාවර පොලිය.',
+  'settings.max': 'උපරිම වාරික ගණන',
+  'settings.max_hint': 'විකුණුමක් බෙදිය හැකි උපරිම වාරික ගණන.',
+  'settings.save': 'සැකසුම් සුරකින්න',
+  'settings.saved': 'සැකසුම් සුරකින ලදී.',
+  'settings.err_interest': 'පොලිය 0 හෝ ඊට වැඩි විය යුතුය.',
+  'settings.err_max': 'උපරිම වාරික ගණන අවම වශයෙන් 1 විය යුතුය.',
 
   // roles
   'role.rep': 'විකුණුම් නියෝජිත',
@@ -135,7 +148,12 @@ const si = {
   'form.loan_hint': 'ස්වයංක්‍රීය: මුළු වටිනාකම − ආරම්භක ගෙවීම',
   'form.num_installments': 'වාරික ගණන',
   'form.monthly': 'මාසික වාරිකය (රු.)',
-  'form.monthly_hint': 'ස්වයංක්‍රීය: ණය ÷ වාරික ගණන',
+  'form.monthly_hint': 'ස්වයංක්‍රීය: (ණය + පොලිය) ÷ වාරික ගණන',
+  'form.interest': 'පොලිය (රු.)',
+  'form.total_collectible': 'මුළු එකතු කළ යුතු මුදල (පොලිය සමඟ)',
+  'form.interest_info': 'ණය ගත් මුදලට (මුළු වටිනාකම − ආරම්භක ගෙවීම) එක් වාරිකයකට {percent}% බැගින් පොලියක් එක් කර වාරික අතර බෙදනු ලැබේ. එබැවින් වාරික වැඩි වන විට පොලිය ද වැඩි වේ.',
+  'form.max_installments_hint': 'උපරිම වාරික {max}.',
+  'form.err_max_installments': 'වාරික ගණන {max} ට වඩා වැඩි විය නොහැක.',
   'form.proposed_date': 'යෝජිත ආරම්භක ගෙවීම් දිනය',
   'form.proposed_date_hint': 'මෙම දිනය පාරිභෝගිකයා සමඟ එකඟ වන්න. ආරම්භක ගෙවීම මෙම දිනයටත්, සෑම වාරිකයක්ම පෙර වාරිකයෙන් මසකට පසුවත් යෙදේ (එම දිනය; කෙටි මාසවලදී මාසාන්තය). අධීක්ෂක ස්ථාපනයේදී අවසන් දිනය තහවුරු කරයි.',
   'form.schedule_title': 'යෝජිත වාරික කාලසටහන',
@@ -162,6 +180,7 @@ const si = {
   'detail.loan_amount': 'ණය මුදල',
   'detail.monthly': 'මාසික වාරිකය',
   'detail.schedule_preview': 'වාරික කාලසටහන',
+  'detail.collectible_label': 'එකතු කළ යුතු: {amount} (පොලිය {interest} සමඟ)',
   'detail.approve': 'අනුමත කරන්න',
   'detail.reject': 'ප්‍රතික්ෂේප කරන්න',
   'detail.payments': 'ගෙවීම්',
@@ -230,6 +249,8 @@ const si = {
   'reports.col_period': 'කාලය',
   'reports.col_num_sales': 'විකුණුම් #',
   'reports.col_confirmed': 'තහවුරු කළ',
+  'reports.col_collectible': 'එකතු කළ යුතු',
+  'reports.col_interest': 'පොලිය',
   'reports.col_cumulative': 'සමුච්චිත',
   'reports.col_paid': 'ගෙවා ඇත',
   'reports.col_awaiting': 'බලාපොරොත්තුවෙන්',
@@ -247,7 +268,8 @@ const si = {
 
   // stats cards
   'stats.total_sales': 'මුළු විකුණුම්',
-  'stats.total_revenue': 'මුළු ආදායම',
+  'stats.total_revenue': 'මුළු විකුණුම් වටිනාකම',
+  'stats.total_collectible': 'එකතු කළ යුතු (පොලිය සමඟ)',
   'stats.pending': 'අනුමැතිය පොරොත්තු',
   'stats.completed': 'සම්පූර්ණ විකුණුම්',
 

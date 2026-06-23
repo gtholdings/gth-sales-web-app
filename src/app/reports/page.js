@@ -167,6 +167,8 @@ function ReportsView() {
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">{t('reports.col_period')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_num_sales')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_confirmed')}</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_collectible')}</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_interest')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_cumulative')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_paid')}</th>
                     <th className="px-4 py-3 text-right font-semibold text-gray-700">{t('reports.col_awaiting')}</th>
@@ -176,12 +178,14 @@ function ReportsView() {
                 </thead>
                 <tbody>
                   {(report?.periods || []).length === 0 ? (
-                    <tr><td colSpan={8} className="px-4 py-6 text-center text-gray-500">{t('reports.no_data')}</td></tr>
+                    <tr><td colSpan={10} className="px-4 py-6 text-center text-gray-500">{t('reports.no_data')}</td></tr>
                   ) : report.periods.map((p) => (
                     <tr key={p.period} className="border-b border-gray-200">
                       <td className="px-4 py-3 font-medium text-gray-900">{p.period}</td>
                       <td className="px-4 py-3 text-right">{p.num_sales}</td>
                       <td className="px-4 py-3 text-right">{formatRs(p.confirmed_sale_total)}</td>
+                      <td className="px-4 py-3 text-right text-indigo-700">{formatRs(p.collectible_total)}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatRs(p.interest_total)}</td>
                       <td className="px-4 py-3 text-right text-gray-600">{formatRs(p.cumulative_confirmed_total)}</td>
                       <td className="px-4 py-3 text-right text-green-700">{formatRs(p.amount_paid)}</td>
                       <td className="px-4 py-3 text-right text-amber-700">{formatRs(p.amount_awaiting)}</td>
@@ -194,6 +198,8 @@ function ReportsView() {
                       <td className="px-4 py-3">{t('reports.total')}</td>
                       <td className="px-4 py-3 text-right">{report.totals.num_sales}</td>
                       <td className="px-4 py-3 text-right">{formatRs(report.totals.confirmed_sale_total)}</td>
+                      <td className="px-4 py-3 text-right text-indigo-700">{formatRs(report.totals.collectible_total)}</td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatRs(report.totals.interest_total)}</td>
                       <td className="px-4 py-3"></td>
                       <td className="px-4 py-3 text-right text-green-700">{formatRs(report.totals.amount_paid)}</td>
                       <td className="px-4 py-3 text-right text-amber-700">{formatRs(report.totals.amount_awaiting)}</td>

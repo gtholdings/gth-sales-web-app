@@ -28,7 +28,20 @@ const en = {
   'nav.new_sale': 'New Sale',
   'nav.reports': 'Reports',
   'nav.admin': 'Admin',
+  'nav.settings': 'Settings',
   'nav.logout': 'Logout',
+
+  // admin settings
+  'settings.title': 'Settings',
+  'settings.subtitle': 'Installment plan configuration used across the system.',
+  'settings.interest': 'Installment Interest (%)',
+  'settings.interest_hint': 'Flat interest per installment, applied to the financed amount (Total − Down Payment).',
+  'settings.max': 'Maximum Number of Installments',
+  'settings.max_hint': 'The most installments a sale may be split into.',
+  'settings.save': 'Save Settings',
+  'settings.saved': 'Settings saved.',
+  'settings.err_interest': 'Interest must be 0 or greater.',
+  'settings.err_max': 'Maximum installments must be at least 1.',
 
   // roles
   'role.rep': 'Sales Representative',
@@ -135,7 +148,12 @@ const en = {
   'form.loan_hint': 'Auto: Total Value − Down Payment',
   'form.num_installments': 'No. of Installments',
   'form.monthly': 'Monthly Installment (Rs.)',
-  'form.monthly_hint': 'Auto: Loan ÷ No. of Installments',
+  'form.monthly_hint': 'Auto: (Loan + interest) ÷ No. of Installments',
+  'form.interest': 'Interest (Rs.)',
+  'form.total_collectible': 'Total Collectible (incl. interest)',
+  'form.interest_info': 'A {percent}% interest per installment is added to the financed amount (Total Value − Down Payment), then split across the installments. So more installments means more interest.',
+  'form.max_installments_hint': 'Maximum {max} installments.',
+  'form.err_max_installments': 'Number of installments cannot exceed {max}.',
   'form.proposed_date': 'Proposed Down Payment Date',
   'form.proposed_date_hint': 'Agree this date with the customer. The down payment falls on this date and each installment one month after the previous (same day; month-end when shorter). The supervisor confirms the final date on installation.',
   'form.schedule_title': 'Proposed Installment Schedule',
@@ -162,6 +180,7 @@ const en = {
   'detail.loan_amount': 'Loan Amount',
   'detail.monthly': 'Monthly Installment',
   'detail.schedule_preview': 'Installment Schedule',
+  'detail.collectible_label': 'To collect: {amount} (incl. interest {interest})',
   'detail.approve': 'Approve',
   'detail.reject': 'Reject',
   'detail.payments': 'Payments',
@@ -230,6 +249,8 @@ const en = {
   'reports.col_period': 'Period',
   'reports.col_num_sales': '# Sales',
   'reports.col_confirmed': 'Confirmed',
+  'reports.col_collectible': 'Collectible',
+  'reports.col_interest': 'Interest',
   'reports.col_cumulative': 'Cumulative',
   'reports.col_paid': 'Paid',
   'reports.col_awaiting': 'Awaiting',
@@ -247,7 +268,8 @@ const en = {
 
   // stats cards
   'stats.total_sales': 'Total Sales',
-  'stats.total_revenue': 'Total Revenue',
+  'stats.total_revenue': 'Total Sales Value',
+  'stats.total_collectible': 'To Collect (incl. interest)',
   'stats.pending': 'Pending Approvals',
   'stats.completed': 'Completed Sales',
 

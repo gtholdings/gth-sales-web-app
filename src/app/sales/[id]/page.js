@@ -7,8 +7,9 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { InstallmentStatusBadge } from '@/components/InstallmentStatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useT } from '@/contexts/LanguageContext';
+import { useAppConfig } from '@/lib/useAppConfig';
 import { formatRs } from '@/lib/format';
-import { splitInstallmentAmounts, installmentDueDates } from '@/lib/installments';
+import { splitInstallmentAmounts, installmentDueDates, totalRepayable } from '@/lib/installments';
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-LK', { year: 'numeric', month: 'short', day: 'numeric' }) : '—';
@@ -20,6 +21,7 @@ function SaleDetail() {
   const router = useRouter();
   const { user, token } = useAuth();
   const { t } = useT();
+  const { interestPercent, maxInstallments } = useAppConfig();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +87,9 @@ function SaleDetail() {
   const submitApproval = (action) => {
     const note = appForm.notes.trim();
     if (!note) { setError(t('detail.comment_required')); return; }
+    if (action === 'approve' && Number(appForm.number_of_installments) > maxInstallments) {
+      setError(t('form.err_max_installments', { max: maxInstallments })); return;
+    }
     act(async () => {
       const body = action === 'approve'
         ? {
@@ -136,9 +141,15 @@ function SaleDetail() {
   const apDown = parseFloat(appForm.base_amount) || 0;
   const apLoan = Math.max(Math.round((apTotal - apDown) * 100) / 100, 0);
   const apN = parseInt(appForm.number_of_installments, 10) || 0;
-  const apAmounts = apLoan > 0 && apN > 0 ? splitInstallmentAmounts(apLoan, apN) : [];
+  const apRepay = apLoan > 0 && apN > 0 ? totalRepayable(apLoan, apN, interestPercent) : 0;
+  const apInterest = Math.round((apRepay - apLoan) * 100) / 100;
+  const apAmounts = apLoan > 0 && apN > 0 ? splitInstallmentAmounts(apRepay, apN) : [];
   const apMonthly = apAmounts.length ? apAmounts[0] : 0;
   const apDueDates = appForm.down_payment_date && apN > 0 ? installmentDueDates(appForm.down_payment_date, apN) : [];
+
+  // Collectible summary for an already-approved sale (sum of all payable rows).
+  const collectibleTotal = installments.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const interestTotal = Math.round((collectibleTotal - apTotal) * 100) / 100;
 
   return (
     <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -157,6 +168,11 @@ function SaleDetail() {
           <div className="text-right">
             <div className="text-2xl font-bold text-gray-900">{formatRs(sale.total_amount)}</div>
             <div className="text-sm text-gray-600">{t(`payment_type.${sale.payment_type}`)} · {t(`sale_status.${sale.status}`)}</div>
+            {collectibleTotal > 0 && (
+              <div className="text-xs text-gray-500 mt-1">
+                {t('detail.collectible_label', { amount: formatRs(collectibleTotal), interest: formatRs(interestTotal) })}
+              </div>
+            )}
             {sale.rep?.full_name && <div className="text-xs text-gray-500 mt-1">{t('detail.rep_label', { name: sale.rep.full_name })}</div>}
             {sale.approver?.full_name && <div className="text-xs text-gray-500">{t('detail.approved_by', { name: sale.approver.full_name, date: fmtDate(sale.approved_at) })}</div>}
           </div>
@@ -180,9 +196,10 @@ function SaleDetail() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('detail.num_installments')}</label>
-              <input type="number" min="1" value={appForm.number_of_installments}
+              <input type="number" min="1" max={maxInstallments} value={appForm.number_of_installments}
                 onChange={(e) => setAppForm((p) => ({ ...p, number_of_installments: e.target.value }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              <p className="mt-1 text-xs text-gray-500">{t('form.max_installments_hint', { max: maxInstallments })}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('detail.down_payment_amount')}</label>
@@ -198,15 +215,23 @@ function SaleDetail() {
             </div>
           </div>
 
-          {/* Live read-only recalculation */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          {/* Live read-only recalculation (includes configured interest) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <div className="text-xs text-gray-500">{t('detail.loan_amount')}</div>
               <div className="font-semibold text-gray-900">{formatRs(apLoan)}</div>
             </div>
             <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500">{t('form.interest')}</div>
+              <div className="font-semibold text-gray-900">{apInterest ? formatRs(apInterest) : '—'}</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
               <div className="text-xs text-gray-500">{t('detail.monthly')}</div>
               <div className="font-semibold text-gray-900">{apMonthly ? formatRs(apMonthly) : '—'}</div>
+            </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div className="text-xs text-gray-500">{t('form.total_collectible')}</div>
+              <div className="font-semibold text-gray-900">{apDown + apRepay ? formatRs(apDown + apRepay) : '—'}</div>
             </div>
           </div>
           {apDueDates.length > 0 && (

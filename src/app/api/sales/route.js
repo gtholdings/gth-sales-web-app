@@ -1,5 +1,7 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds, scopeSalesQuery } from '@/lib/scope-query';
+import { readPlanConfig } from '@/lib/config';
+import { totalRepayable, splitInstallmentAmounts } from '@/lib/installments';
 import { formatRs } from '@/lib/format';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
@@ -153,6 +155,7 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
     // schedule rows are created here. The schedule is generated later when a
     // supervisor collects the down payment (the approve step). We persist the
     // proposed plan so the approval screen can pre-fill it.
+    const { interestPercent, maxInstallments } = await readPlanConfig(supabaseAdmin);
     const isInstallment = (payment_type || 'installment') === 'installment';
     const down = typeof base_amount === 'number' ? base_amount : 0;
     const n = parseInt(num_installments, 10) || 0;
@@ -167,10 +170,15 @@ export const POST = withAuth(['rep'], async (request, { user, supabaseAdmin }) =
       if (n < 1) {
         return NextResponse.json({ error: 'Number of installments must be at least 1' }, { status: 400 });
       }
+      if (n > maxInstallments) {
+        return NextResponse.json({ error: `Number of installments cannot exceed ${maxInstallments}` }, { status: 400 });
+      }
       if (!down_payment_date || Number.isNaN(Date.parse(down_payment_date))) {
         return NextResponse.json({ error: 'Proposed down payment date is required' }, { status: 400 });
       }
-      installmentAmount = Math.round(((total_amount - down) / n) * 100) / 100;
+      // Per-installment amount includes the configured flat interest.
+      const repay = totalRepayable(total_amount - down, n, interestPercent);
+      installmentAmount = splitInstallmentAmounts(repay, n)[0];
     }
 
     // Create sale record. Store the rep's proposal in proposed_* AND seed the

@@ -18,18 +18,29 @@ import logger from '@/lib/logger';
  */
 export const GET = withAuth(['supervisor', 'manager', 'admin', 'credit_officer'], async (request, { user, supabaseAdmin }) => {
   try {
-    // ---- legacy all-time stats (unchanged shape; powers the dashboard) ----
+    // ---- legacy all-time stats (powers the dashboard) ----
     const visibleRepIds = await getVisibleRepIds(user, supabaseAdmin);
-    let q = supabaseAdmin.from('dialog_tv_sales').select('total_amount, status, payment_type');
+    let q = supabaseAdmin.from('dialog_tv_sales').select('id, total_amount, status, payment_type');
     q = scopeSalesQuery(q, visibleRepIds);
     const { data: allSales, error } = await q;
     if (error) {
       return NextResponse.json({ error: 'Failed to fetch sales data' }, { status: 500 });
     }
     const sales = allSales || [];
+
+    // Total collectible (incl. interest) = sum of all installment amounts in scope.
+    let totalCollectible = 0;
+    const saleIds = sales.map((s) => s.id);
+    for (let i = 0; i < saleIds.length; i += 400) {
+      const { data: inst } = await supabaseAdmin
+        .from('installments').select('amount').in('sale_id', saleIds.slice(i, i + 400));
+      for (const it of inst || []) totalCollectible += Number(it.amount || 0);
+    }
+
     const stats = {
       total_sales: sales.length,
       total_revenue: sales.reduce((s, x) => s + (Number(x.total_amount) || 0), 0),
+      total_collectible: Math.round(totalCollectible * 100) / 100,
       by_status: {
         pending: sales.filter((s) => s.status === 'pending').length,
         approved: sales.filter((s) => s.status === 'approved').length,

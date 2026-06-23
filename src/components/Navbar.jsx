@@ -31,6 +31,7 @@ export const Navbar = () => {
 
     if (user.role === 'admin') {
       items.push({ label: t('nav.admin'), href: '/admin' });
+      items.push({ label: t('nav.settings'), href: '/admin/settings' });
     }
 
     return items;

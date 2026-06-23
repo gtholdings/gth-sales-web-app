@@ -9,6 +9,7 @@ const StatCard = ({ title, value, icon, color = 'blue' }) => {
     green: 'bg-green-50 border-green-200 text-green-700',
     yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
     purple: 'bg-purple-50 border-purple-200 text-purple-700',
+    indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700',
   };
 
   const iconColorClasses = {
@@ -16,6 +17,7 @@ const StatCard = ({ title, value, icon, color = 'blue' }) => {
     green: 'bg-green-100 text-green-600',
     yellow: 'bg-yellow-100 text-yellow-600',
     purple: 'bg-purple-100 text-purple-600',
+    indigo: 'bg-indigo-100 text-indigo-600',
   };
 
   return (
@@ -65,6 +67,7 @@ export const StatsCards = ({ stats = {} }) => {
   const {
     total_sales = 0,
     total_revenue = 0,
+    total_collectible = 0,
     by_status = {},
   } = stats;
 
@@ -72,9 +75,10 @@ export const StatsCards = ({ stats = {} }) => {
   const completed = by_status.completed || 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
       <StatCard title={t('stats.total_sales')} value={total_sales.toString()} icon={<SalesIcon />} color="blue" />
       <StatCard title={t('stats.total_revenue')} value={formatRs(total_revenue)} icon={<RevenueIcon />} color="green" />
+      <StatCard title={t('stats.total_collectible')} value={formatRs(total_collectible)} icon={<RevenueIcon />} color="indigo" />
       <StatCard title={t('stats.pending')} value={pending.toString()} icon={<PendingIcon />} color="yellow" />
       <StatCard title={t('stats.completed')} value={completed.toString()} icon={<CompletedIcon />} color="purple" />
     </div>

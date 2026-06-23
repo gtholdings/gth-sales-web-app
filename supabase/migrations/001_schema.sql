@@ -99,9 +99,11 @@ INSERT INTO app_config (key, value) VALUES
   ('default_installment_count', '3'),
   ('installment_options', '[1, 2, 3]'),
   ('notification_recipients_finance', '[]'),
-  ('default_days_threshold', '30'),   -- overdue this many days => defaulted
-  ('reminder_days_before', '7'),      -- email staff this many days before due
-  ('overdue_days_after', '1');        -- overdue notice this many days after due
+  ('default_days_threshold', '30'),         -- overdue this many days => defaulted
+  ('reminder_days_before', '7'),            -- email staff this many days before due
+  ('overdue_days_after', '1'),              -- overdue notice this many days after due
+  ('installment_interest_percent', '10'),  -- flat interest % per installment on the financed amount
+  ('max_installments', '12');              -- max installments a sale may have
 
 -- ──────────────────────────────────────────────
 -- 4. DIALOG TV SALES

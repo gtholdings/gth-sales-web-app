@@ -58,13 +58,12 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
       result = response.data;
       error = response.error;
     } else {
-      // Insert new config
+      // Insert new config (app_config has no created_at column)
       const response = await supabaseAdmin
         .from('app_config')
         .insert({
           key,
           value,
-          created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .select()

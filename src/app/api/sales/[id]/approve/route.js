@@ -1,6 +1,7 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { getVisibleRepIds } from '@/lib/scope-query';
-import { splitInstallmentAmounts, installmentDueDates } from '@/lib/installments';
+import { readPlanConfig } from '@/lib/config';
+import { splitInstallmentAmounts, installmentDueDates, totalRepayable } from '@/lib/installments';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
@@ -94,6 +95,8 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
     let downPaymentDate = collectionDate;
     let perInstallment = null;
 
+    const { interestPercent, maxInstallments } = await readPlanConfig(supabaseAdmin);
+
     if (sale.payment_type === 'installment') {
       const n = parseInt(number_of_installments, 10);
       baseAmount = Number(base_amount);
@@ -101,6 +104,9 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
 
       if (!Number.isInteger(n) || n < 1) {
         return NextResponse.json({ error: 'number_of_installments must be an integer >= 1' }, { status: 400 });
+      }
+      if (n > maxInstallments) {
+        return NextResponse.json({ error: `Number of installments cannot exceed ${maxInstallments}` }, { status: 400 });
       }
       if (!(baseAmount >= 0) || baseAmount >= total) {
         return NextResponse.json({ error: 'base_amount must be between 0 and the total amount' }, { status: 400 });
@@ -110,7 +116,8 @@ export const POST = withAuth(['supervisor', 'manager', 'admin'], async (request,
       }
 
       numInstallments = n;
-      const remaining = Math.round((total - baseAmount) * 100) / 100;
+      // Financed amount + configured flat interest, split across the installments.
+      const remaining = totalRepayable(total - baseAmount, n, interestPercent);
       const amounts = splitInstallmentAmounts(remaining, n);
       const dueDates = installmentDueDates(downPaymentDate, n); // k=1..N months after the down payment
       perInstallment = amounts[0];

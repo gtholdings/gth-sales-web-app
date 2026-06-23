@@ -9,21 +9,34 @@ import { addMonths, format, parseISO, differenceInCalendarDays } from 'date-fns'
  */
 
 /**
- * Split a remaining amount into N installment amounts using integer-cents math
- * so the sum is exact; the last installment absorbs any rounding remainder.
- * @param {number} remaining - amount to split (e.g. total - base)
- * @param {number} n - number of installments (>= 1)
- * @returns {number[]} array of N amounts, 2-decimal exact, summing to `remaining`
+ * Total amount repayable over the installments for a financed principal.
+ * A FLAT interest of (interestPercent% × number_of_installments) is added to the
+ * principal (the financed amount = Total Value − Down Payment):
+ *   totalRepayable = principal × (1 + (interestPercent/100) × n)
+ * e.g. principal 5000, 10%, n=2 → 5000×1.2 = 6000; n=3 → 5000×1.3 = 6500.
+ * @param {number} principal - financed amount (total - down payment)
+ * @param {number} n - number of installments
+ * @param {number} interestPercent - interest rate as a percent (e.g. 10), from app_config
+ * @returns {number} total repayable, rounded to 2 decimals
  */
-export function splitInstallmentAmounts(remaining, n) {
-  const cents = Math.round(Number(remaining) * 100);
-  const each = Math.floor(cents / n);
-  const remainder = cents - each * n;
+export function totalRepayable(principal, n, interestPercent) {
+  const rate = Number(interestPercent || 0) / 100;
+  return Math.round(Number(principal) * (1 + rate * Number(n)) * 100) / 100;
+}
+
+/**
+ * Split a total into N installment amounts. Each installment is the per-period
+ * value rounded to the cent; the LAST installment absorbs the rounding remainder
+ * so the sum is exact. (e.g. 6500 / 3 → 2166.67, 2166.67, 2166.66.)
+ * @param {number} total - amount to split across the installments
+ * @param {number} n - number of installments (>= 1)
+ * @returns {number[]} array of N amounts, 2-decimal, summing exactly to `total`
+ */
+export function splitInstallmentAmounts(total, n) {
+  const each = Math.round((Number(total) / n) * 100) / 100;
   const amounts = [];
-  for (let i = 0; i < n; i++) {
-    const c = each + (i === n - 1 ? remainder : 0);
-    amounts.push(c / 100);
-  }
+  for (let i = 0; i < n - 1; i++) amounts.push(each);
+  amounts.push(Math.round((Number(total) - each * (n - 1)) * 100) / 100);
   return amounts;
 }
 

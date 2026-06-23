@@ -76,8 +76,17 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-SCH-3** **Month-end rule:** when that day-of-month does not exist in the target month,
   the due date **clamps to the last day of that month** (e.g. down payment Jan 31 → Feb 28 (or
   29 in a leap year), May 31 → Jun 30); the original day resumes in later months.
-- **R-SCH-4** Installment amounts split the loan evenly to the cent; the final installment
-  absorbs any rounding remainder so the sum equals the loan exactly.
+- **R-SCH-4** Installment amounts split the financed total evenly to the cent; the final
+  installment absorbs any rounding remainder so the sum is exact.
+- **R-SCH-5** **Interest:** a flat interest of `interest% × number_of_installments` is added to
+  the financed amount (Total − Down Payment). Per-installment amount =
+  `((Total − Down) × (1 + (interest%/100) × N)) / N`. The interest rate (default 10%) is
+  **admin-configurable** (R-ADM-3). More installments ⇒ more interest.
+- **R-SCH-6** The number of installments may not exceed an **admin-configurable maximum**
+  (default 12), enforced in the rep form and at approval, server-side.
+- **R-SCH-7** Because of interest, the **total amount to collect** (down payment + all
+  installments) exceeds the sale's Total Value. Dashboards and reports surface this as a
+  distinct **"To Collect (incl. interest)"** metric plus an **Interest** figure.
 
 ## 7. Payment Tracking, Confirmation & Audit
 - **R-PAY-1** Each payable (the down payment and every installment) has a state:
@@ -118,6 +127,8 @@ Organisation hierarchy (each user reports to the level above via `reports_to`):
 - **R-ADM-1** Admin approves/activates pending users and sets role + reporting line.
 - **R-ADM-2** Admin can manage configuration values (installment options, thresholds,
   credit-officer notification recipients).
+- **R-ADM-3** A **Settings page** lets the admin set the **installment interest %** and the
+  **maximum number of installments**; both are used system-wide for calculations and validation.
 
 ## 11. Internationalisation
 - **R-I18N-1** The entire UI (labels, buttons, messages) is available in **English and Sinhala**.

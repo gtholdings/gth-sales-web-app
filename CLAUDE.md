@@ -66,6 +66,16 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   created **claimed (awaiting_confirmation)** by the supervisor; installment k (1..N)
   is due `addMonths(downPaymentDate, k)` — same day-of-month, **clamped to month-end**
   when missing (Jan 31→Feb 28; May 31→Jun 30). See [installments.js](src/lib/installments.js).
+- **Interest:** a flat `interest% × N` is added to the financed amount; per-installment =
+  `((total − down) × (1 + (interest%/100) × N)) / N` (`totalRepayable()` + `splitInstallmentAmounts()`).
+  Rate + **max installments** are admin-configurable (app_config `installment_interest_percent`,
+  `max_installments`) — read server-side via [config.js](src/lib/config.js) `readPlanConfig()`,
+  client-side via [useAppConfig.js](src/lib/useAppConfig.js). Edited at **/admin/settings**.
+- **Money two ways:** Total Value (the sale) vs **Total Collectible = down + installments
+  (incl. interest)**. Reports/dashboard surface `collectible_total` + `interest_total`.
+- **Comment required** on approve/reject/claim/confirm (enforced server-side + UI).
+- **Every state-changing action requires a comment** (approve/reject sale, claim, finance confirm/reject).
+  Activity timeline is newest-first; the rep's original proposal is the earliest entry.
 - **The credit officer** confirms each payment against the bank (claim → confirm/reject).
 - Every sale is an installment plan (no full-payment toggle in the form).
 
