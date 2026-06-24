@@ -217,5 +217,6 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 - ⏳ Admin re-seed: register `0768971679` via the app, then
   `UPDATE profiles SET role='admin', status='active' WHERE phone='0768971679';`
 - ⏳ Manual UI pass for the EN⇄SI toggle in a browser (logic verified by build).
-- ⏳ Replace placeholder PWA icons (`public/icons/*`) with real GTH artwork.
+- ✅ PWA icons rebranded to the GTH navy serif monogram (`public/icons/*`,
+  generated from an SVG via `sharp`; full + maskable + apple-touch + favicon).
 - See [requirements.md](requirements.md) for the consolidated business requirements (SRS).
