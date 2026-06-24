@@ -251,6 +251,12 @@ const en = {
   'admin.err_delete': 'Failed to delete user.',
   'admin.err_name': 'Full name is required.',
   'admin.err_password': 'Password must be at least 6 characters.',
+  'admin.tab_pending': 'Pending Users',
+  'admin.tab_all': 'All Users',
+  'admin.approve': 'Approve',
+  'admin.reject': 'Reject',
+  'admin.no_pending': 'No pending users.',
+  'admin.reject_confirm': 'Reject and delete {name}? This removes their registration and cannot be undone.',
 
   // reports
   'reports.title': 'Sales Reports',

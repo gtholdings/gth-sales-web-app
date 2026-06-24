@@ -251,6 +251,12 @@ const si = {
   'admin.err_delete': 'පරිශීලක මැකීමට අසමත් විය.',
   'admin.err_name': 'සම්පූර්ණ නම අවශ්‍යයි.',
   'admin.err_password': 'මුරපදය අවම වශයෙන් අක්ෂර 6ක් විය යුතුය.',
+  'admin.tab_pending': 'පොරොත්තු පරිශීලකයෝ',
+  'admin.tab_all': 'සියලු පරිශීලකයෝ',
+  'admin.approve': 'අනුමත කරන්න',
+  'admin.reject': 'ප්‍රතික්ෂේප කරන්න',
+  'admin.no_pending': 'පොරොත්තු පරිශීලකයන් නැත.',
+  'admin.reject_confirm': '{name} ප්‍රතික්ෂේප කර මකන්නද? මෙය ඔවුන්ගේ ලියාපදිංචිය ඉවත් කරන අතර අහෝසි කළ නොහැක.',
 
   // reports
   'reports.title': 'විකුණුම් වාර්තා',

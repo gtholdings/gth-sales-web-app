@@ -21,11 +21,15 @@ function AdminUsers() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [tab, setTab] = useState('pending'); // 'pending' | 'all'
 
   const [modal, setModal] = useState(null); // { mode: 'create'|'edit', id? }
   const [form, setForm] = useState(emptyForm);
   const [busy, setBusy] = useState(false);
+
+  // per-row inline edits for pending users, keyed by user id: { role, reports_to }
+  const [pendingEdits, setPendingEdits] = useState({});
+  const [rowBusy, setRowBusy] = useState(null); // user id currently being approved/rejected
 
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
@@ -41,6 +45,19 @@ function AdminUsers() {
   }, [token, t]);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
+
+  // seed per-row inline edit state for pending users from their current values
+  useEffect(() => {
+    setPendingEdits((prev) => {
+      const next = { ...prev };
+      for (const u of users) {
+        if (u.status === 'pending' && !next[u.id]) {
+          next[u.id] = { role: u.role, reports_to: u.reports_to || '' };
+        }
+      }
+      return next;
+    });
+  }, [users]);
 
   useEffect(() => {
     if (!token) return;
@@ -125,7 +142,47 @@ function AdminUsers() {
     } catch { setError(t('admin.err_delete')); }
   };
 
-  const shown = users.filter((u) => statusFilter === 'all' || u.status === statusFilter);
+  // pending-row inline edits: changing role resets the chosen parent
+  const setPendingField = (id, field, value) =>
+    setPendingEdits((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value, ...(field === 'role' ? { reports_to: '' } : {}) },
+    }));
+
+  const approveUser = async (u) => {
+    setError(''); setNotice('');
+    const edit = pendingEdits[u.id] || { role: u.role, reports_to: u.reports_to || '' };
+    const needsParent = edit.role === 'rep' || edit.role === 'supervisor';
+    const reports_to = needsParent ? edit.reports_to || null : null;
+    setRowBusy(u.id);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, {
+        method: 'PATCH', headers: authHeaders,
+        body: JSON.stringify({ status: 'active', role: edit.role, reports_to }),
+      });
+      if (!res.ok) { setError((await res.json().catch(() => ({}))).error || t('admin.err_save')); return; }
+      setNotice(t('admin.updated'));
+      await loadUsers();
+    } catch { setError(t('admin.err_save')); }
+    finally { setRowBusy(null); }
+  };
+
+  // No 'rejected' value exists in the user_status enum, and a denied self-registration
+  // should not keep a login — so Reject deletes the profile + Auth user via DELETE.
+  const rejectUser = async (u) => {
+    setError(''); setNotice('');
+    if (!window.confirm(t('admin.reject_confirm', { name: u.full_name }))) return;
+    setRowBusy(u.id);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE', headers: authHeaders });
+      if (!res.ok) { setError((await res.json().catch(() => ({}))).error || t('admin.err_delete')); return; }
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setNotice(t('admin.deleted'));
+    } catch { setError(t('admin.err_delete')); }
+    finally { setRowBusy(null); }
+  };
+
+  const pendingUsers = users.filter((u) => u.status === 'pending');
   const statusStyles = {
     active: 'bg-green-100 text-green-800', pending: 'bg-yellow-100 text-yellow-800', inactive: 'bg-gray-200 text-gray-700',
   };
@@ -133,95 +190,196 @@ function AdminUsers() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('admin.title')}</h1>
-          <p className="text-gray-600 mt-2">{t('admin.subtitle')}</p>
-        </div>
-        <button onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg">
-          + {t('admin.add_user')}
-        </button>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">{t('admin.title')}</h1>
+        <p className="text-gray-600 mt-2">{t('admin.subtitle')}</p>
       </div>
 
       {error && <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">{error}</div>}
       {notice && <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">{notice}</div>}
 
-      {/* Status filter */}
-      <div className="mb-4 flex items-center gap-2 text-sm">
-        <span className="text-gray-600">{t('admin.filter_status')}:</span>
-        {['all', ...STATUSES].map((s) => (
-          <button key={s} onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1 rounded-full font-medium ${statusFilter === s ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-            {s === 'all' ? t('admin.all_statuses') : t('admin.status_' + s)}
+      {/* Tabs */}
+      <div className="mb-4 flex items-center gap-2 border-b border-gray-200">
+        {[
+          { key: 'pending', label: `${t('admin.tab_pending')} (${pendingUsers.length})` },
+          { key: 'all', label: `${t('admin.tab_all')} (${users.length})` },
+        ].map((tb) => (
+          <button key={tb.key} onClick={() => setTab(tb.key)}
+            className={`px-4 py-2.5 -mb-px font-medium text-sm border-b-2 ${tab === tb.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            {tb.label}
           </button>
         ))}
       </div>
 
       {isLoading ? (
         <div className="flex justify-center items-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>
-      ) : shown.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-gray-500 text-lg">{t('admin.no_users')}</p></div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_name')}</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_phone')}</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_email')}</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_role')}</th>
-                  <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_reports_to')}</th>
-                  <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('admin.col_status')}</th>
-                  <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((u) => (
-                  <tr key={u.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{u.full_name}{u.id === me?.id && <span className="ml-2 text-xs text-blue-600">({t('admin.you')})</span>}</td>
-                    <td className="px-6 py-4 text-gray-700">{u.phone}</td>
-                    <td className="px-6 py-4 text-gray-700">{u.email || '—'}</td>
-                    <td className="px-6 py-4"><span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">{t('role.' + u.role)}</span></td>
-                    <td className="px-6 py-4 text-gray-700">{u.reports_to_name || '—'}</td>
-                    <td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${statusStyles[u.status] || statusStyles.inactive}`}>{t('admin.status_' + u.status)}</span></td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2 justify-center">
-                        <button onClick={() => openEdit(u)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-xs font-medium">{t('admin.edit')}</button>
-                        <button onClick={() => removeUser(u)} disabled={u.id === me?.id} className="bg-red-500 hover:bg-red-600 disabled:bg-red-200 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs font-medium">{t('admin.delete')}</button>
-                      </div>
-                    </td>
+      ) : tab === 'pending' ? (
+        /* ---------- Pending Users tab ---------- */
+        pendingUsers.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-gray-500 text-lg">{t('admin.no_pending')}</p></div>
+        ) : (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_name')}</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_phone')}</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_email')}</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_role')}</th>
+                    <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_reports_to')}</th>
+                    <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('common.actions')}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {pendingUsers.map((u) => {
+                    const edit = pendingEdits[u.id] || { role: u.role, reports_to: u.reports_to || '' };
+                    const opts = parentOptionsFor(edit.role);
+                    return (
+                      <tr key={u.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-gray-900">{u.full_name}</td>
+                        <td className="px-6 py-4 text-gray-700">{u.phone}</td>
+                        <td className="px-6 py-4 text-gray-700">{u.email || '—'}</td>
+                        <td className="px-6 py-4">
+                          <select value={edit.role} onChange={(e) => setPendingField(u.id, 'role', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+                            {ROLES.map((r) => <option key={r} value={r}>{t('role.' + r)}</option>)}
+                          </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          {opts ? (
+                            <select value={edit.reports_to} onChange={(e) => setPendingField(u.id, 'reports_to', e.target.value)} className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+                              <option value="">{opts.label}</option>
+                              {opts.options.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                            </select>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-2 justify-center">
+                            <button onClick={() => approveUser(u)} disabled={rowBusy === u.id} className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-3 py-1 rounded text-xs font-medium">{t('admin.approve')}</button>
+                            <button onClick={() => rejectUser(u)} disabled={rowBusy === u.id} className="bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white px-3 py-1 rounded text-xs font-medium">{t('admin.reject')}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          {/* Mobile cards */}
-          <ul className="md:hidden divide-y divide-gray-100">
-            {shown.map((u) => (
-              <li key={u.id} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{u.full_name}{u.id === me?.id && <span className="ml-2 text-xs text-blue-600">({t('admin.you')})</span>}</p>
+            {/* Mobile cards */}
+            <ul className="md:hidden divide-y divide-gray-100">
+              {pendingUsers.map((u) => {
+                const edit = pendingEdits[u.id] || { role: u.role, reports_to: u.reports_to || '' };
+                const opts = parentOptionsFor(edit.role);
+                return (
+                  <li key={u.id} className="px-4 py-3">
+                    <p className="font-semibold text-gray-900 truncate">{u.full_name}</p>
                     <p className="text-xs text-gray-500">{u.phone}{u.email ? ` · ${u.email}` : ''}</p>
-                  </div>
-                  <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles[u.status] || statusStyles.inactive}`}>{t('admin.status_' + u.status)}</span>
-                </div>
-                <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
-                  <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-medium">{t('role.' + u.role)}</span>
-                  {u.reports_to_name && <span>→ {u.reports_to_name}</span>}
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => openEdit(u)} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded text-sm font-medium">{t('admin.edit')}</button>
-                  <button onClick={() => removeUser(u)} disabled={u.id === me?.id} className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white px-3 py-2 rounded text-sm font-medium">{t('admin.delete')}</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">{t('sales.showing', { n: shown.length, total: users.length })}</div>
-        </div>
+                    <div className="mt-3 space-y-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{t('admin.col_role')}</label>
+                        <select value={edit.role} onChange={(e) => setPendingField(u.id, 'role', e.target.value)} className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                          {ROLES.map((r) => <option key={r} value={r}>{t('role.' + r)}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">{t('admin.col_reports_to')}</label>
+                        {opts ? (
+                          <select value={edit.reports_to} onChange={(e) => setPendingField(u.id, 'reports_to', e.target.value)} className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">{opts.label}</option>
+                            {opts.options.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                          </select>
+                        ) : (
+                          <p className="text-sm text-gray-400">—</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => approveUser(u)} disabled={rowBusy === u.id} className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-3 py-2 rounded text-sm font-medium">{t('admin.approve')}</button>
+                      <button onClick={() => rejectUser(u)} disabled={rowBusy === u.id} className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white px-3 py-2 rounded text-sm font-medium">{t('admin.reject')}</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )
+      ) : (
+        /* ---------- All Users tab ---------- */
+        <>
+          <div className="mb-4 flex justify-end">
+            <button onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg">
+              + {t('admin.add_user')}
+            </button>
+          </div>
+          {users.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-gray-500 text-lg">{t('admin.no_users')}</p></div>
+          ) : (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_name')}</th>
+                      <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_phone')}</th>
+                      <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_email')}</th>
+                      <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_role')}</th>
+                      <th className="px-6 py-3 text-left font-semibold text-gray-700">{t('admin.col_reports_to')}</th>
+                      <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('admin.col_status')}</th>
+                      <th className="px-6 py-3 text-center font-semibold text-gray-700">{t('common.actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => (
+                      <tr key={u.id} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-gray-900">{u.full_name}{u.id === me?.id && <span className="ml-2 text-xs text-blue-600">({t('admin.you')})</span>}</td>
+                        <td className="px-6 py-4 text-gray-700">{u.phone}</td>
+                        <td className="px-6 py-4 text-gray-700">{u.email || '—'}</td>
+                        <td className="px-6 py-4"><span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">{t('role.' + u.role)}</span></td>
+                        <td className="px-6 py-4 text-gray-700">{u.reports_to_name || '—'}</td>
+                        <td className="px-6 py-4 text-center"><span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${statusStyles[u.status] || statusStyles.inactive}`}>{t('admin.status_' + u.status)}</span></td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-2 justify-center">
+                            <button onClick={() => openEdit(u)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-xs font-medium">{t('admin.edit')}</button>
+                            <button onClick={() => removeUser(u)} disabled={u.id === me?.id} className="bg-red-500 hover:bg-red-600 disabled:bg-red-200 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-xs font-medium">{t('admin.delete')}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <ul className="md:hidden divide-y divide-gray-100">
+                {users.map((u) => (
+                  <li key={u.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{u.full_name}{u.id === me?.id && <span className="ml-2 text-xs text-blue-600">({t('admin.you')})</span>}</p>
+                        <p className="text-xs text-gray-500">{u.phone}{u.email ? ` · ${u.email}` : ''}</p>
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles[u.status] || statusStyles.inactive}`}>{t('admin.status_' + u.status)}</span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
+                      <span className="bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full font-medium">{t('role.' + u.role)}</span>
+                      {u.reports_to_name && <span>→ {u.reports_to_name}</span>}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => openEdit(u)} className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-2 rounded text-sm font-medium">{t('admin.edit')}</button>
+                      <button onClick={() => removeUser(u)} disabled={u.id === me?.id} className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-red-200 text-white px-3 py-2 rounded text-sm font-medium">{t('admin.delete')}</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">{t('sales.showing', { n: users.length, total: users.length })}</div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Create / Edit modal */}
