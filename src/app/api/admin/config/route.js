@@ -2,6 +2,37 @@ import { withAuth } from '@/lib/auth-middleware';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
+// Keys whose values must never leave the server (e.g. the Gmail App Password).
+const SECRET_KEYS = new Set(['smtp_app_password']);
+
+/**
+ * GET /api/admin/config
+ * Admin only — returns ALL app config for the Settings page. Secret values
+ * (SECRET_KEYS) are redacted to '' and reported only as a `<key>_set` boolean,
+ * so the password is never sent to the browser (Settings keeps it blank = keep).
+ */
+export const GET = withAuth(['admin'], async (_request, { supabaseAdmin }) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('app_config').select('key, value').order('key', { ascending: true });
+    if (error) {
+      return NextResponse.json({ error: 'Failed to fetch configuration' }, { status: 500 });
+    }
+    const flags = {};
+    const rows = (data || []).map((r) => {
+      if (SECRET_KEYS.has(r.key)) {
+        flags[`${r.key}_set`] = !!(r.value && String(r.value).length);
+        return { key: r.key, value: '' };
+      }
+      return r;
+    });
+    return NextResponse.json({ data: rows, ...flags }, { status: 200 });
+  } catch (error) {
+    logger.error('Fetch admin config error:', { message: error?.message, stack: error?.stack });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+});
+
 /**
  * PUT /api/admin/config
  * Protected endpoint (admin only) - upserts app configuration
@@ -34,7 +65,7 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
     }
 
     // Upsert config (try to update, if no match, insert)
-    const { data: existingConfig, error: selectError } = await supabaseAdmin
+    const { data: existingConfig } = await supabaseAdmin
       .from('app_config')
       .select('*')
       .eq('key', key)

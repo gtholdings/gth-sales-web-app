@@ -10,7 +10,7 @@ credit officers, and admin manage them via a web dashboard. Bilingual **English/
 All free tiers ($0).
 
 **Stack:** Next.js 15.5.19 (App Router, JS not TS) · React 18 · Supabase
-(Postgres + Auth) · Tailwind · Resend (email) · Winston (logging) · exceljs +
+(Postgres + Auth) · Tailwind · Gmail SMTP via nodemailer (email) · Winston (logging) · exceljs +
 date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 (manifest linked + icons, standalone) but the **service worker is NOT wired into
 `next.config.mjs`** — so **no offline support** yet. See [Backups & ops](#backups--ops).
@@ -115,7 +115,11 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   author_id, note, amount, created_at)` — audit trail.
 - `app_config` keys: default_installment_count, installment_options,
   notification_recipients_finance, default_days_threshold(30), reminder_days_before(7),
-  overdue_days_after(1). `notification_log` for email/notify audit.
+  overdue_days_after(1), installment_interest_percent(10), max_installments,
+  number_of_failed_retry_attempts(3), smtp_user / smtp_app_password / smtp_from_name
+  (Gmail SMTP). `notification_log` for email/notify audit. Most keys are edited at
+  **/admin/settings**; the SMTP password is write-only (redacted in GET /api/admin/config,
+  never sent to the client). Public **GET /api/config** only exposes the two plan keys.
 
 ## Feature areas
 - **New sale form** ([SalesForm.jsx](src/components/SalesForm.jsx)): Customer + Payment
@@ -123,8 +127,13 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **Approval/amendment** ([approve route](src/app/api/sales/[id]/approve/route.js)) +
   **detail page** ([sales/[id]](src/app/sales/[id]/page.js)): claim/confirm/comment +
   activity timeline; routes `…/installments/[id]/{claim,confirm}`, `…/comments`, `GET …/[id]`.
-- **Reminders:** [notify.js](src/lib/notify.js) + secured [cron route](src/app/api/cron/installment-reminders/route.js)
+- **Reminders:** [notify.js](src/lib/notify.js) (email via **Gmail free SMTP / nodemailer**,
+  sender configured in Settings) + secured [cron route](src/app/api/cron/installment-reminders/route.js)
   (`x-cron-secret`), daily via `.github/workflows/installment-reminders.yml` (secrets `APP_URL`, `CRON_SECRET`).
+  The cron uses **windowed** selection (reminders due within `reminder_days_before` days;
+  overdue notices for the recent window) so a failed email retries **once per day** until it
+  succeeds (deduped on a logged `sent` row) or hits `number_of_failed_retry_attempts`, then
+  gives up — no more duplicate-send / log-growth.
 - **Reports / per-user metrics:** [reports.js](src/lib/reports.js) + [excel.js](src/lib/excel.js);
   routes `…/reports`, `…/reports/defaulters`, `…/reports/export`; filter dropdowns from
   `/api/profiles/{supervisors,managers,reps}`. `/api/sales/reports` is open to **rep**
@@ -183,7 +192,9 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 ## Env vars
 - **App (Netlify / `.env.local`):** `NEXT_PUBLIC_SUPABASE_URL`,
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public), `SUPABASE_SECRET_KEY`,
-  `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, `CRON_SECRET`, `LOG_LEVEL?`.
+  `CRON_SECRET`, `LOG_LEVEL?`. Email uses **Gmail SMTP** — set the sender in
+  **/admin/settings** (app_config); `GMAIL_USER` / `GMAIL_APP_PASSWORD` are an
+  optional env fallback. (Resend was removed.)
 - **GitHub Actions secrets (on `gth-sales-web-app`):** `APP_URL`, `CRON_SECRET`
   (reminders) · `SUPABASE_DB_URL` (session-pooler string), `BACKUP_SSH_KEY` (backups).
 
