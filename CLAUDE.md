@@ -34,13 +34,14 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **`withAuth(roles, handler)`** → `(request, { user, supabaseAdmin, params })`;
   `params` is a Promise in Next 15 (`await params`). `'any'` = any active user;
   admin is NOT auto-bypassed in the API (list roles explicitly).
-- **Roles:** `rep, supervisor, manager, admin, credit_officer` ("supervisor"
-  replaced the old "team_lead" everywhere incl. the DB enum). Hierarchy via
-  `profiles.reports_to`: rep → supervisor → manager → admin.
-- **Roles** = `rep, supervisor, manager, admin, credit_officer, field_officer`.
+- **Roles** = `rep, supervisor, manager, admin, credit_officer, field_officer`
+  ("supervisor" replaced the old "team_lead" everywhere incl. the DB enum).
+  Hierarchy via `profiles.reports_to`: rep → supervisor → manager → admin.
   **Field Officer** = cross-team field installer: **views ALL sales read-only,
   comments only** (no create/approve/claim) — covers an install when the owning
-  team is away, then phones them to make plan changes. ([sale-status.js](src/lib/sale-status.js))
+  team is away, then phones them to make plan changes. Client-supplied roles are
+  validated server-side against an allowlist ([roles.js](src/lib/roles.js));
+  `admin` is not self-registerable.
 - **Scope** ([scope-query.js](src/lib/scope-query.js)): `getVisibleRepIds` → `'*'`
   for admin/credit_officer/**field_officer**, `[self]` rep, `[self,...reps]` supervisor,
   `[self,...supervisors,...reps]` manager. `scopeSalesQuery` applies `.in('rep_id', ids)`.

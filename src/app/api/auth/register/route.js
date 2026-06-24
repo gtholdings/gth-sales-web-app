@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import logger from '@/lib/logger';
 import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
+import { isSelfRegisterRole } from '@/lib/roles';
 
 /**
  * POST /api/auth/register
@@ -38,6 +39,12 @@ export const POST = async (request) => {
         { error: 'Missing required fields: phone, password, full_name, role' },
         { status: 400 }
       );
+    }
+
+    // Validate the requested role against an allowlist so a self-registrant can't
+    // self-assign an arbitrary/elevated role (admin is not self-registerable).
+    if (!isSelfRegisterRole(role)) {
+      return NextResponse.json({ error: 'Invalid role selection' }, { status: 400 });
     }
 
     // Validate + normalize the login phone.

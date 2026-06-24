@@ -80,6 +80,10 @@ async function loadSales(saleIds) {
 
 const money = (n) => formatRs(n);
 const label = (it) => (it.is_base ? 'Down payment' : `Installment ${it.installment_number}`);
+// Escape free-text (customer_name) before embedding into the email HTML body so
+// a crafted customer name can't inject markup into staff inboxes / notification_log.
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function run() {
   const today = appTodayYMD();
@@ -118,12 +122,12 @@ async function run() {
   const reminders = await sendForInstallments(
     upcoming || [], sales,
     (it, s) => `Upcoming payment due ${it.due_date} — ${s.customer_name}`,
-    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${s.customer_name}</strong> is due on <strong>${it.due_date}</strong>.</p>`,
+    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${esc(s.customer_name)}</strong> is due on <strong>${it.due_date}</strong>.</p>`,
   );
   const notices = await sendForInstallments(
     overdue || [], sales,
     (it, s) => `OVERDUE payment (due ${it.due_date}) — ${s.customer_name}`,
-    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${s.customer_name}</strong> was due on <strong>${it.due_date}</strong> and is unpaid.</p>`,
+    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${esc(s.customer_name)}</strong> was due on <strong>${it.due_date}</strong> and is unpaid.</p>`,
   );
 
   const summary = {

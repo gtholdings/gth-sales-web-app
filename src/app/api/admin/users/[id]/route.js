@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
+import { isValidRole } from '@/lib/roles';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
@@ -18,6 +19,9 @@ export const PATCH = withAuth(['admin'], async (request, { supabaseAdmin, params
 
     if (!userId) {
       return NextResponse.json({ error: 'Missing user ID' }, { status: 400 });
+    }
+    if (role !== undefined && !isValidRole(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
     const profileUpdate = { updated_at: new Date().toISOString() };

@@ -1,5 +1,6 @@
 import { withAuth } from '@/lib/auth-middleware';
 import { toLocalMobile, toAuthEmail, PHONE_FORMAT_HINT } from '@/lib/phone';
+import { isValidRole } from '@/lib/roles';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
@@ -59,6 +60,9 @@ export const POST = withAuth(['admin'], async (request, { supabaseAdmin }) => {
 
     if (!full_name?.trim() || !phone || !password || !role) {
       return NextResponse.json({ error: 'Missing required fields: full_name, phone, password, role' }, { status: 400 });
+    }
+    if (!isValidRole(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
     if (String(password).length < 6) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });

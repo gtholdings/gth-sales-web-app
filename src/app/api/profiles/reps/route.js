@@ -1,17 +1,19 @@
+import { withAuth } from '@/lib/auth-middleware';
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
 import logger from '@/lib/logger';
 
 /**
  * GET /api/profiles/reps
- * Public endpoint - returns active sales reps (for report filter dropdowns).
- * Response: { reps: [{ id, full_name, email }] }
+ * Active sales reps for the report filter dropdown. Unlike /supervisors and
+ * /managers (public, needed by the pre-auth register page), this is only used by
+ * the authenticated reports page, so it requires auth and does NOT expose emails.
+ * Response: { reps: [{ id, full_name }] }
  */
-export const GET = async () => {
+export const GET = withAuth(['admin', 'supervisor', 'manager', 'credit_officer'], async (_request, { supabaseAdmin }) => {
   try {
     const { data: reps, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name')
       .eq('role', 'rep')
       .eq('status', 'active')
       .order('full_name', { ascending: true });
@@ -24,4 +26,4 @@ export const GET = async () => {
     logger.error('Fetch reps error:', { message: error?.message, stack: error?.stack });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-};
+});
