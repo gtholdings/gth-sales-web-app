@@ -52,7 +52,7 @@ const si = {
   'role.field_officer': 'ක්ෂේත්‍ර නිලධාරී',
 
   // login
-  'login.brand': 'GTH Sales',
+  'login.brand': 'GT Sales',
   'login.org': 'Global Tech Holdings',
   'login.mobile': 'ජංගම දුරකථන අංකය',
   'login.password': 'මුරපදය',
@@ -63,7 +63,7 @@ const si = {
   'login.failed': 'පිවිසීම අසාර්ථකයි',
 
   // register
-  'register.brand': 'GTH Sales',
+  'register.brand': 'GT Sales',
   'register.subtitle': 'නව ගිණුමක් සාදන්න',
   'register.full_name': 'සම්පූර්ණ නම',
   'register.mobile': 'ජංගම දුරකථන අංකය',

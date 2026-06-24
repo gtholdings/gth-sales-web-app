@@ -52,7 +52,7 @@ const en = {
   'role.field_officer': 'Field Officer',
 
   // login
-  'login.brand': 'GTH Sales',
+  'login.brand': 'GT Sales',
   'login.org': 'Global Tech Holdings',
   'login.mobile': 'Mobile Number',
   'login.password': 'Password',
@@ -63,7 +63,7 @@ const en = {
   'login.failed': 'Login failed',
 
   // register
-  'register.brand': 'GTH Sales',
+  'register.brand': 'GT Sales',
   'register.subtitle': 'Create New Account',
   'register.full_name': 'Full Name',
   'register.mobile': 'Mobile Number',

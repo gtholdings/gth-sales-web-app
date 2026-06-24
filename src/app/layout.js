@@ -9,13 +9,13 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const notoSinhala = Noto_Sans_Sinhala({ subsets: ['sinhala'], variable: '--font-sinhala' });
 
 export const metadata = {
-  title: 'GTH Sales',
+  title: 'GT Sales',
   description: 'Global Tech Holdings Sales Management',
   // Linking the manifest is what makes the app installable (standalone, no URL
   // bar) and gives Android a real home-screen icon instead of a grey bookmark.
   manifest: '/manifest.json',
-  applicationName: 'GTH Sales',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GTH Sales' },
+  applicationName: 'GT Sales',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GT Sales' },
   icons: {
     icon: [
       { url: '/icons/favicon-32x32.png', sizes: '32x32', type: 'image/png' },

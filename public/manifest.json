@@ -1,6 +1,6 @@
 {
-  "name": "GTH Sales",
-  "short_name": "GTH",
+  "name": "GT Sales",
+  "short_name": "GT",
   "description": "Sales management app for Global Tech Holdings",
   "start_url": "/dashboard",
   "scope": "/",
