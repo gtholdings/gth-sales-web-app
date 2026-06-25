@@ -15,6 +15,24 @@ const RANGES = [
   { value: 'custom', label: 'reports.range_custom' },
 ];
 
+// One label/value pair, used inside the mobile accordion (module scope so it
+// isn't redefined each render).
+function Metric({ label, value, className = 'text-gray-900' }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="text-gray-500">{label}</span>
+      <span className={`font-medium tabular-nums ${className}`}>{value}</span>
+    </div>
+  );
+}
+
+const Chevron = ({ open }) => (
+  <svg className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+    fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+);
+
 function ReportsView() {
   const { token, user } = useAuth();
   const { t } = useT();
@@ -28,6 +46,7 @@ function ReportsView() {
   const [reps, setReps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openPeriod, setOpenPeriod] = useState(null); // mobile accordion
 
   // Load filter dropdown sources once (reps have no subordinates to filter by).
   useEffect(() => {
@@ -109,7 +128,8 @@ function ReportsView() {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-end">
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex flex-wrap gap-4 items-end">
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">{t('reports.range')}</label>
           <select value={filters.range} onChange={(e) => set('range', e.target.value)}
@@ -159,14 +179,17 @@ function ReportsView() {
           </select>
         </div>
         )}
-        <button onClick={() => exportXlsx('summary')} className="ml-auto bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg">
-          {t('reports.export_summary')}
-        </button>
-        {!isRep && (
-          <button onClick={() => exportXlsx('defaulters')} className="bg-green-700 hover:bg-green-800 text-white font-medium px-4 py-2 rounded-lg">
-            {t('reports.export_defaulters')}
+        </div>
+        <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
+          <button onClick={() => exportXlsx('summary')} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg">
+            {t('reports.export_summary')}
           </button>
-        )}
+          {!isRep && (
+            <button onClick={() => exportXlsx('defaulters')} className="w-full sm:w-auto bg-green-700 hover:bg-green-800 text-white font-medium px-4 py-2 rounded-lg">
+              {t('reports.export_defaulters')}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -176,7 +199,7 @@ function ReportsView() {
           {/* Period report */}
           <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
             <h2 className="text-lg font-bold text-gray-900 p-4 border-b border-gray-200">{t('reports.by_period')}</h2>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-100 border-b border-gray-200">
                   <tr>
@@ -226,6 +249,58 @@ function ReportsView() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile: tap a period to expand (no horizontal scroll) */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {(report?.periods || []).length === 0 ? (
+                <p className="px-4 py-6 text-center text-gray-500">{t('reports.no_data')}</p>
+              ) : report.periods.map((p) => {
+                const open = openPeriod === p.period;
+                return (
+                  <div key={p.period}>
+                    <button type="button" onClick={() => setOpenPeriod(open ? null : p.period)}
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left active:bg-gray-50">
+                      <div>
+                        <div className="font-semibold text-gray-900">{p.period}</div>
+                        <div className="text-xs text-gray-500">{p.num_sales} · {t('reports.col_num_sales')}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <div className="text-[10px] uppercase tracking-wide text-gray-400">{t('reports.col_collectible')}</div>
+                          <div className="text-sm font-semibold text-indigo-700 tabular-nums">{formatRs(p.collectible_total)}</div>
+                        </div>
+                        <Chevron open={open} />
+                      </div>
+                    </button>
+                    {open && (
+                      <div className="px-4 pb-4 space-y-2 text-sm">
+                        <Metric label={t('reports.col_confirmed')} value={formatRs(p.confirmed_sale_total)} />
+                        <Metric label={t('reports.col_interest')} value={formatRs(p.interest_total)} />
+                        <Metric label={t('reports.col_cumulative')} value={formatRs(p.cumulative_confirmed_total)} className="text-gray-600" />
+                        <Metric label={t('reports.col_paid')} value={formatRs(p.amount_paid)} className="text-green-700" />
+                        <Metric label={t('reports.col_awaiting')} value={formatRs(p.amount_awaiting)} className="text-amber-700" />
+                        <Metric label={t('reports.col_pending')} value={formatRs(p.amount_pending)} />
+                        <Metric label={t('reports.col_defaulted')} value={formatRs(p.amount_defaulted)} className="text-red-700" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {report?.totals && report.periods.length > 0 && (
+                <div className="px-4 py-3 bg-gray-50">
+                  <div className="font-semibold text-gray-900 mb-2">{t('reports.total')} · {report.totals.num_sales} {t('reports.col_num_sales')}</div>
+                  <div className="space-y-2 text-sm">
+                    <Metric label={t('reports.col_confirmed')} value={formatRs(report.totals.confirmed_sale_total)} />
+                    <Metric label={t('reports.col_collectible')} value={formatRs(report.totals.collectible_total)} className="text-indigo-700" />
+                    <Metric label={t('reports.col_interest')} value={formatRs(report.totals.interest_total)} />
+                    <Metric label={t('reports.col_paid')} value={formatRs(report.totals.amount_paid)} className="text-green-700" />
+                    <Metric label={t('reports.col_awaiting')} value={formatRs(report.totals.amount_awaiting)} className="text-amber-700" />
+                    <Metric label={t('reports.col_pending')} value={formatRs(report.totals.amount_pending)} />
+                    <Metric label={t('reports.col_defaulted')} value={formatRs(report.totals.amount_defaulted)} className="text-red-700" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Defaulters */}
@@ -234,7 +309,7 @@ function ReportsView() {
             <h2 className="text-lg font-bold text-gray-900 p-4 border-b border-gray-200">
               {t('reports.defaulters')} {defaulters && <span className="text-sm font-normal text-gray-500">{t('reports.defaulters_total', { amount: formatRs(defaulters.total_defaulted_amount) })}</span>}
             </h2>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-100 border-b border-gray-200">
                   <tr>
@@ -258,6 +333,20 @@ function ReportsView() {
                 </tbody>
               </table>
             </div>
+            {/* Mobile cards */}
+            <ul className="md:hidden divide-y divide-gray-100">
+              {(defaulters?.rows || []).length === 0 ? (
+                <li className="px-4 py-6 text-center text-gray-500">{t('reports.no_defaulters')}</li>
+              ) : defaulters.rows.map((r) => (
+                <li key={r.rep_id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">{r.rep_name}</div>
+                    <div className="text-xs text-gray-500">{r.defaulted_count} {t('reports.col_defaulted_num')} · {r.oldest_due_date}</div>
+                  </div>
+                  <div className="text-right font-semibold text-red-700 tabular-nums shrink-0">{formatRs(r.defaulted_amount)}</div>
+                </li>
+              ))}
+            </ul>
           </div>
           )}
         </>
