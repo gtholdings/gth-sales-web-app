@@ -1,9 +1,10 @@
 import { withAuth } from '@/lib/auth-middleware';
+import { encryptSecret, SECRET_CONFIG_KEYS } from '@/lib/crypto';
 import { NextResponse } from 'next/server';
 import logger from '@/lib/logger';
 
-// Keys whose values must never leave the server (e.g. the Gmail App Password).
-const SECRET_KEYS = new Set(['smtp_app_password']);
+// Keys whose values are encrypted at rest + never returned to the client.
+const SECRET_KEYS = SECRET_CONFIG_KEYS;
 
 /**
  * GET /api/admin/config
@@ -64,6 +65,9 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
       );
     }
 
+    // Secret values (e.g. the Gmail App Password) are encrypted at rest.
+    const storedValue = SECRET_KEYS.has(key) ? encryptSecret(value) : value;
+
     // Upsert config (try to update, if no match, insert)
     const { data: existingConfig } = await supabaseAdmin
       .from('app_config')
@@ -79,7 +83,7 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
       const response = await supabaseAdmin
         .from('app_config')
         .update({
-          value,
+          value: storedValue,
           updated_at: new Date().toISOString(),
         })
         .eq('key', key)
@@ -94,7 +98,7 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
         .from('app_config')
         .insert({
           key,
-          value,
+          value: storedValue,
           updated_at: new Date().toISOString(),
         })
         .select()
@@ -111,6 +115,8 @@ export const PUT = withAuth(['admin'], async (request, { supabaseAdmin }) => {
       );
     }
 
+    // Never echo a secret value (ciphertext) back to the client.
+    if (result && SECRET_KEYS.has(key)) result.value = '';
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     logger.error('Update config error:', { message: error?.message, stack: error?.stack });

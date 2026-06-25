@@ -119,7 +119,11 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   number_of_failed_retry_attempts(3), smtp_user / smtp_app_password / smtp_from_name
   (Gmail SMTP). `notification_log` for email/notify audit. Most keys are edited at
   **/admin/settings**; the SMTP password is write-only (redacted in GET /api/admin/config,
-  never sent to the client). Public **GET /api/config** only exposes the two plan keys.
+  never sent to the client) AND **encrypted at rest** (AES-256-GCM via
+  [crypto.js](src/lib/crypto.js); key = `CONFIG_ENCRYPTION_KEY` env, else derived from
+  `SUPABASE_SECRET_KEY`) so the DB/backups only hold ciphertext — decrypted server-side in
+  notify.js. Plaintext/legacy values pass through, so re-save an existing password once to
+  encrypt it. Public **GET /api/config** only exposes the two plan keys.
 
 ## Feature areas
 - **New sale form** ([SalesForm.jsx](src/components/SalesForm.jsx)): Customer + Payment

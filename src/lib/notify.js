@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { decryptSecret } from '@/lib/crypto';
 import logger from '@/lib/logger';
 
 /**
@@ -25,7 +26,8 @@ async function readMailConfig(supabaseAdmin) {
     for (const r of data || []) cfg[r.key] = r.value;
   } catch { /* fall back to env */ }
   const user = String(cfg.smtp_user || process.env.GMAIL_USER || '').trim();
-  const pass = String(cfg.smtp_app_password || process.env.GMAIL_APP_PASSWORD || '');
+  // Stored encrypted at rest — decrypt for use (plaintext/legacy passes through).
+  const pass = String(decryptSecret(cfg.smtp_app_password) || process.env.GMAIL_APP_PASSWORD || '');
   const fromName = String(cfg.smtp_from_name || 'GT Sales').trim() || 'GT Sales';
   return { user, pass, fromName };
 }

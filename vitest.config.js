@@ -28,6 +28,7 @@ export default defineConfig({
         'src/lib/reports.js',
         'src/lib/scope-query.js',
         'src/lib/excel.js',
+        'src/lib/crypto.js',
       ],
     },
   },
