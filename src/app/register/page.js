@@ -203,7 +203,7 @@ export default function RegisterPage() {
 
           {/* Brand Section */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-blue-800 mb-2">GTH Sales</h1>
+            <h1 className="text-4xl font-bold text-blue-800 mb-2">GT Sales</h1>
             <p className="text-gray-600">{t('register.subtitle')}</p>
           </div>
 

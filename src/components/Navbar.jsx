@@ -54,7 +54,7 @@ export const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo/Brand */}
           <div className="flex-shrink-0 font-bold text-xl">
-            GTH Sales
+            GT Sales
           </div>
 
           {/* Desktop Navigation */}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { addDays, subDays, parseISO, format } from 'date-fns';
 import { supabaseAdmin } from '@/lib/supabase';
 import { appTodayYMD, zonedDayStart } from '@/lib/datetime';
@@ -35,10 +35,19 @@ async function getConfigNumber(key, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-// Send to all staff recipients for a sale, skipping same-day duplicates.
-async function sendForInstallments(items, salesById, subjectFor, bodyFor) {
+/**
+ * Send to all staff recipients for a sale, with idempotency + a failed-retry cap.
+ * Per (recipient, sale, subject):
+ *   - already delivered (a `sent` row exists)            -> skip
+ *   - already attempted today (a row dated today)        -> skip (one try/day)
+ *   - `failed` attempts >= retryCap (across prior days)  -> give up (no more tries)
+ *   - otherwise                                          -> attempt + log
+ * So a failing send retries once per day for up to retryCap days, then stops —
+ * and the log no longer doubles on every run.
+ */
+async function sendForInstallments(items, salesById, subjectFor, bodyFor, retryCap) {
   const todayStartIso = zonedDayStart(appTodayYMD()).toISOString();
-  let sent = 0, skipped = 0, failed = 0;
+  let sent = 0, skipped = 0, failed = 0, given_up = 0;
   for (const it of items) {
     const sale = salesById.get(it.sale_id);
     if (!sale) continue;
@@ -46,23 +55,22 @@ async function sendForInstallments(items, salesById, subjectFor, bodyFor) {
     const subject = subjectFor(it, sale);
     const body = bodyFor(it, sale);
     for (const r of recipients) {
-      // Idempotency: same recipient + sale + subject already logged today?
-      const { data: dupes } = await supabaseAdmin
+      const { data: rows } = await supabaseAdmin
         .from('notification_log')
-        .select('id')
+        .select('status, sent_at')
         .eq('recipient_email', r.email)
         .eq('sale_id', sale.id)
-        .eq('subject', subject)
-        .eq('status', 'sent')
-        .gte('sent_at', todayStartIso)
-        .limit(1);
-      if (dupes && dupes.length) { skipped++; continue; }
+        .eq('subject', subject);
+      const hist = rows || [];
+      if (hist.some((x) => x.status === 'sent')) { skipped++; continue; }          // already delivered
+      if (hist.some((x) => x.sent_at >= todayStartIso)) { skipped++; continue; }    // already tried today
+      if (hist.filter((x) => x.status === 'failed').length >= retryCap) { given_up++; continue; }
 
       const res = await notify(supabaseAdmin, { channel: 'email', recipient: r, saleId: sale.id, subject, body });
       if (res.status === 'sent') sent++; else failed++;
     }
   }
-  return { sent, skipped, failed };
+  return { sent, skipped, failed, given_up };
 }
 
 async function loadSales(saleIds) {
@@ -80,15 +88,22 @@ async function loadSales(saleIds) {
 
 const money = (n) => formatRs(n);
 const label = (it) => (it.is_base ? 'Down payment' : `Installment ${it.installment_number}`);
+// Escape free-text (customer_name) before embedding into the email HTML body so
+// a crafted customer name can't inject markup into staff inboxes / notification_log.
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function run() {
   const today = appTodayYMD();
   const threshold = await getConfigNumber('default_days_threshold', 30);
   const remindBefore = await getConfigNumber('reminder_days_before', 7);
   const overdueAfter = await getConfigNumber('overdue_days_after', 1);
+  // Stop emailing a given recipient/sale/notice after this many failed days.
+  const retryCap = Math.max(1, await getConfigNumber('number_of_failed_retry_attempts', 3));
 
   const reminderDate = format(addDays(parseISO(today), remindBefore), 'yyyy-MM-dd');
   const overdueNoticeDate = format(subDays(parseISO(today), overdueAfter), 'yyyy-MM-dd');
+  const overdueWindowStart = format(subDays(parseISO(today), remindBefore), 'yyyy-MM-dd');
   const defaultedBefore = format(subDays(parseISO(today), threshold), 'yyyy-MM-dd');
 
   // 1. pending past due -> overdue
@@ -101,15 +116,18 @@ async function run() {
     .from('installments').update({ status: 'defaulted', updated_at: new Date().toISOString() })
     .eq('status', 'overdue').lt('due_date', defaultedBefore).select('id');
 
-  // 3. reminders: due in `remindBefore` days, still pending
+  // 3. reminders: pending and due within the next `remindBefore` days. A WINDOW
+  //    (not an exact date) so a send that fails is retried on later days until it
+  //    succeeds (deduped) or hits the retry cap. Normal case still sends once.
   const { data: upcoming } = await supabaseAdmin
     .from('installments').select('id, sale_id, amount, due_date, installment_number, is_base')
-    .eq('status', 'pending').eq('due_date', reminderDate);
+    .eq('status', 'pending').gt('due_date', today).lte('due_date', reminderDate);
 
-  // 4. overdue notices: missed by `overdueAfter` days
+  // 4. overdue notices: overdue by `overdueAfter`..`remindBefore` days (recent
+  //    misses), same windowed retry behaviour.
   const { data: overdue } = await supabaseAdmin
     .from('installments').select('id, sale_id, amount, due_date, installment_number, is_base')
-    .eq('status', 'overdue').eq('due_date', overdueNoticeDate);
+    .eq('status', 'overdue').gte('due_date', overdueWindowStart).lte('due_date', overdueNoticeDate);
 
   const sales = await loadSales([
     ...new Set([...(upcoming || []), ...(overdue || [])].map((i) => i.sale_id)),
@@ -118,19 +136,21 @@ async function run() {
   const reminders = await sendForInstallments(
     upcoming || [], sales,
     (it, s) => `Upcoming payment due ${it.due_date} — ${s.customer_name}`,
-    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${s.customer_name}</strong> is due on <strong>${it.due_date}</strong>.</p>`,
+    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${esc(s.customer_name)}</strong> is due on <strong>${it.due_date}</strong>.</p>`,
+    retryCap,
   );
   const notices = await sendForInstallments(
     overdue || [], sales,
     (it, s) => `OVERDUE payment (due ${it.due_date}) — ${s.customer_name}`,
-    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${s.customer_name}</strong> was due on <strong>${it.due_date}</strong> and is unpaid.</p>`,
+    (it, s) => `<p>${label(it)} of <strong>${money(it.amount)}</strong> for <strong>${esc(s.customer_name)}</strong> was due on <strong>${it.due_date}</strong> and is unpaid.</p>`,
+    retryCap,
   );
 
   const summary = {
     marked_overdue: markedOverdue?.length || 0,
     marked_defaulted: markedDefaulted?.length || 0,
-    reminders_sent: reminders.sent, reminders_skipped: reminders.skipped, reminders_failed: reminders.failed,
-    overdue_sent: notices.sent, overdue_skipped: notices.skipped, overdue_failed: notices.failed,
+    reminders_sent: reminders.sent, reminders_skipped: reminders.skipped, reminders_failed: reminders.failed, reminders_given_up: reminders.given_up,
+    overdue_sent: notices.sent, overdue_skipped: notices.skipped, overdue_failed: notices.failed, overdue_given_up: notices.given_up,
   };
   logger.info('Cron installment-reminders complete', summary);
   return summary;

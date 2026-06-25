@@ -6,6 +6,9 @@
 # testing
 /coverage
 
+# local QA / example data (never commit — contains real example emails, test data)
+/examples/
+
 # next.js
 /.next/
 /out/

@@ -10,7 +10,7 @@ credit officers, and admin manage them via a web dashboard. Bilingual **English/
 All free tiers ($0).
 
 **Stack:** Next.js 15.5.19 (App Router, JS not TS) · React 18 · Supabase
-(Postgres + Auth) · Tailwind · Resend (email) · Winston (logging) · exceljs +
+(Postgres + Auth) · Tailwind · Gmail SMTP via nodemailer (email) · Winston (logging) · exceljs +
 date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 (manifest linked + icons, standalone) but the **service worker is NOT wired into
 `next.config.mjs`** — so **no offline support** yet. See [Backups & ops](#backups--ops).
@@ -34,13 +34,14 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **`withAuth(roles, handler)`** → `(request, { user, supabaseAdmin, params })`;
   `params` is a Promise in Next 15 (`await params`). `'any'` = any active user;
   admin is NOT auto-bypassed in the API (list roles explicitly).
-- **Roles:** `rep, supervisor, manager, admin, credit_officer` ("supervisor"
-  replaced the old "team_lead" everywhere incl. the DB enum). Hierarchy via
-  `profiles.reports_to`: rep → supervisor → manager → admin.
-- **Roles** = `rep, supervisor, manager, admin, credit_officer, field_officer`.
+- **Roles** = `rep, supervisor, manager, admin, credit_officer, field_officer`
+  ("supervisor" replaced the old "team_lead" everywhere incl. the DB enum).
+  Hierarchy via `profiles.reports_to`: rep → supervisor → manager → admin.
   **Field Officer** = cross-team field installer: **views ALL sales read-only,
   comments only** (no create/approve/claim) — covers an install when the owning
-  team is away, then phones them to make plan changes. ([sale-status.js](src/lib/sale-status.js))
+  team is away, then phones them to make plan changes. Client-supplied roles are
+  validated server-side against an allowlist ([roles.js](src/lib/roles.js));
+  `admin` is not self-registerable.
 - **Scope** ([scope-query.js](src/lib/scope-query.js)): `getVisibleRepIds` → `'*'`
   for admin/credit_officer/**field_officer**, `[self]` rep, `[self,...reps]` supervisor,
   `[self,...supervisors,...reps]` manager. `scopeSalesQuery` applies `.in('rep_id', ids)`.
@@ -114,7 +115,15 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
   author_id, note, amount, created_at)` — audit trail.
 - `app_config` keys: default_installment_count, installment_options,
   notification_recipients_finance, default_days_threshold(30), reminder_days_before(7),
-  overdue_days_after(1). `notification_log` for email/notify audit.
+  overdue_days_after(1), installment_interest_percent(10), max_installments,
+  number_of_failed_retry_attempts(3), smtp_user / smtp_app_password / smtp_from_name
+  (Gmail SMTP). `notification_log` for email/notify audit. Most keys are edited at
+  **/admin/settings**; the SMTP password is write-only (redacted in GET /api/admin/config,
+  never sent to the client) AND **encrypted at rest** (AES-256-GCM via
+  [crypto.js](src/lib/crypto.js); key = `CONFIG_ENCRYPTION_KEY` env, else derived from
+  `SUPABASE_SECRET_KEY`) so the DB/backups only hold ciphertext — decrypted server-side in
+  notify.js. Plaintext/legacy values pass through, so re-save an existing password once to
+  encrypt it. Public **GET /api/config** only exposes the two plan keys.
 
 ## Feature areas
 - **New sale form** ([SalesForm.jsx](src/components/SalesForm.jsx)): Customer + Payment
@@ -122,8 +131,13 @@ date-fns (reports). Deployed on **Netlify** (Node 22). **PWA is installable**
 - **Approval/amendment** ([approve route](src/app/api/sales/[id]/approve/route.js)) +
   **detail page** ([sales/[id]](src/app/sales/[id]/page.js)): claim/confirm/comment +
   activity timeline; routes `…/installments/[id]/{claim,confirm}`, `…/comments`, `GET …/[id]`.
-- **Reminders:** [notify.js](src/lib/notify.js) + secured [cron route](src/app/api/cron/installment-reminders/route.js)
+- **Reminders:** [notify.js](src/lib/notify.js) (email via **Gmail free SMTP / nodemailer**,
+  sender configured in Settings) + secured [cron route](src/app/api/cron/installment-reminders/route.js)
   (`x-cron-secret`), daily via `.github/workflows/installment-reminders.yml` (secrets `APP_URL`, `CRON_SECRET`).
+  The cron uses **windowed** selection (reminders due within `reminder_days_before` days;
+  overdue notices for the recent window) so a failed email retries **once per day** until it
+  succeeds (deduped on a logged `sent` row) or hits `number_of_failed_retry_attempts`, then
+  gives up — no more duplicate-send / log-growth.
 - **Reports / per-user metrics:** [reports.js](src/lib/reports.js) + [excel.js](src/lib/excel.js);
   routes `…/reports`, `…/reports/defaulters`, `…/reports/export`; filter dropdowns from
   `/api/profiles/{supervisors,managers,reps}`. `/api/sales/reports` is open to **rep**
@@ -182,7 +196,9 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 ## Env vars
 - **App (Netlify / `.env.local`):** `NEXT_PUBLIC_SUPABASE_URL`,
   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public), `SUPABASE_SECRET_KEY`,
-  `RESEND_API_KEY`, `NOTIFICATION_FROM_EMAIL`, `CRON_SECRET`, `LOG_LEVEL?`.
+  `CRON_SECRET`, `LOG_LEVEL?`. Email uses **Gmail SMTP** — set the sender in
+  **/admin/settings** (app_config); `GMAIL_USER` / `GMAIL_APP_PASSWORD` are an
+  optional env fallback. (Resend was removed.)
 - **GitHub Actions secrets (on `gth-sales-web-app`):** `APP_URL`, `CRON_SECRET`
   (reminders) · `SUPABASE_DB_URL` (session-pooler string), `BACKUP_SSH_KEY` (backups).
 
@@ -217,5 +233,6 @@ after 7 days of DB inactivity** (data kept, ~30s wake). So we self-back-up.
 - ⏳ Admin re-seed: register `0768971679` via the app, then
   `UPDATE profiles SET role='admin', status='active' WHERE phone='0768971679';`
 - ⏳ Manual UI pass for the EN⇄SI toggle in a browser (logic verified by build).
-- ⏳ Replace placeholder PWA icons (`public/icons/*`) with real GTH artwork.
+- ✅ PWA icons rebranded to the GTH navy serif monogram (`public/icons/*`,
+  generated from an SVG via `sharp`; full + maskable + apple-touch + favicon).
 - See [requirements.md](requirements.md) for the consolidated business requirements (SRS).

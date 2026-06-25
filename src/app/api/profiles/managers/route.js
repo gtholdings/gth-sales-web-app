@@ -20,7 +20,7 @@ export const GET = async () => {
   try {
     const { data: managers, error } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name')
       .eq('role', 'manager')
       .eq('status', 'active')
       .order('full_name', { ascending: true });

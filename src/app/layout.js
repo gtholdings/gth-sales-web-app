@@ -9,20 +9,24 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const notoSinhala = Noto_Sans_Sinhala({ subsets: ['sinhala'], variable: '--font-sinhala' });
 
 export const metadata = {
-  title: 'GTH Sales',
+  title: 'GT Sales',
   description: 'Global Tech Holdings Sales Management',
   // Linking the manifest is what makes the app installable (standalone, no URL
   // bar) and gives Android a real home-screen icon instead of a grey bookmark.
   manifest: '/manifest.json',
-  applicationName: 'GTH Sales',
-  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GTH Sales' },
+  applicationName: 'GT Sales',
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GT Sales' },
+  // The ?v=N query string is a cache-buster: phones (esp. iOS) cache PWA/home-
+  // screen icons by URL and only re-fetch when the URL changes. Bump v when the
+  // icon PNGs are rebranded so re-installs pick up the new artwork. Keep this in
+  // sync with the same ?v= in public/manifest.json.
   icons: {
     icon: [
-      { url: '/icons/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icons/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192x192.png?v=2', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png?v=2', sizes: '512x512', type: 'image/png' },
     ],
-    apple: '/icons/apple-touch-icon.png',
+    apple: '/icons/apple-touch-icon.png?v=2',
   },
 };
 

@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .next node_modules/.cache",
-    "dev:clean": "npm run clean && next dev"
+    "dev:clean": "npm run clean && next dev",
+    "test": "vitest run",
+    "test:cov": "vitest run --coverage"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
@@ -19,16 +21,18 @@
     "date-fns-tz": "^3.2.0",
     "exceljs": "^4.4.0",
     "next": "15.5.19",
+    "nodemailer": "^9.0.1",
     "postcss": "^8.5.15",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "resend": "^2.0.0",
     "tailwindcss": "^3.4.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.6",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^15.5.19"
+    "eslint-config-next": "^15.5.19",
+    "vitest": "^3.2.6"
   },
   "overrides": {
     "serialize-javascript": "^7.0.6",

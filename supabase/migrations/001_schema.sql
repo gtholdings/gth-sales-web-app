@@ -112,7 +112,11 @@ INSERT INTO app_config (key, value) VALUES
   ('reminder_days_before', '7'),            -- email staff this many days before due
   ('overdue_days_after', '1'),              -- overdue notice this many days after due
   ('installment_interest_percent', '10'),  -- flat interest % per installment on the financed amount
-  ('max_installments', '12');              -- max installments a sale may have
+  ('max_installments', '12'),              -- max installments a sale may have
+  ('number_of_failed_retry_attempts', '3'),-- email: retry a failed send 1×/day up to N days, then stop
+  ('smtp_user', '""'),                     -- Gmail address reminders are sent FROM (set in Settings)
+  ('smtp_app_password', '""'),             -- Gmail App Password (16 chars; set in Settings; never returned to client)
+  ('smtp_from_name', '"GT Sales"');        -- sender display name
 
 -- ──────────────────────────────────────────────
 -- 4. DIALOG TV SALES
