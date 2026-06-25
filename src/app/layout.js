@@ -16,13 +16,17 @@ export const metadata = {
   manifest: '/manifest.json',
   applicationName: 'GT Sales',
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'GT Sales' },
+  // The ?v=N query string is a cache-buster: phones (esp. iOS) cache PWA/home-
+  // screen icons by URL and only re-fetch when the URL changes. Bump v when the
+  // icon PNGs are rebranded so re-installs pick up the new artwork. Keep this in
+  // sync with the same ?v= in public/manifest.json.
   icons: {
     icon: [
-      { url: '/icons/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icons/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
+      { url: '/icons/icon-192x192.png?v=2', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png?v=2', sizes: '512x512', type: 'image/png' },
     ],
-    apple: '/icons/apple-touch-icon.png',
+    apple: '/icons/apple-touch-icon.png?v=2',
   },
 };
 
