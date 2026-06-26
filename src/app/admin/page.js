@@ -31,6 +31,13 @@ function AdminUsers() {
   const [pendingEdits, setPendingEdits] = useState({});
   const [rowBusy, setRowBusy] = useState(null); // user id currently being approved/rejected
 
+  // All Users tab: search / filter / sort
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleF, setUserRoleF] = useState('');
+  const [userStatusF, setUserStatusF] = useState('');
+  const [userSortBy, setUserSortBy] = useState('name');
+  const [userSortDir, setUserSortDir] = useState('asc');
+
   const authHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const loadUsers = useCallback(async () => {
@@ -183,6 +190,25 @@ function AdminUsers() {
   };
 
   const pendingUsers = users.filter((u) => u.status === 'pending');
+
+  // All Users tab list: search + role/status filter + sort.
+  const USER_SORT_KEY = { name: 'full_name', role: 'role', status: 'status', phone: 'phone' };
+  const visibleUsers = (() => {
+    let arr = users;
+    const term = userSearch.trim().toLowerCase();
+    if (term) arr = arr.filter((u) => (u.full_name || '').toLowerCase().includes(term) || (u.phone || '').includes(term) || (u.email || '').toLowerCase().includes(term));
+    if (userRoleF) arr = arr.filter((u) => u.role === userRoleF);
+    if (userStatusF) arr = arr.filter((u) => u.status === userStatusF);
+    const key = USER_SORT_KEY[userSortBy] || 'full_name';
+    const dir = userSortDir === 'asc' ? 1 : -1;
+    return [...arr].sort((a, b) => {
+      const va = String(a[key] || '').toLowerCase(), vb = String(b[key] || '').toLowerCase();
+      if (va < vb) return -dir;
+      if (va > vb) return dir;
+      return 0;
+    });
+  })();
+
   const statusStyles = {
     active: 'bg-green-100 text-green-800', pending: 'bg-yellow-100 text-yellow-800', inactive: 'bg-gray-200 text-gray-700',
   };
@@ -310,12 +336,34 @@ function AdminUsers() {
       ) : (
         /* ---------- All Users tab ---------- */
         <>
-          <div className="mb-4 flex justify-end">
-            <button onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg">
-              + {t('admin.add_user')}
-            </button>
+          {/* Toolbar: search + Add User + filters/sort */}
+          <div className="bg-white rounded-lg shadow p-4 mb-4 space-y-3">
+            <div className="flex gap-2">
+              <input type="text" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder={t('admin.search')}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <button onClick={openCreate} className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg">+ {t('admin.add_user')}</button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <select value={userRoleF} onChange={(e) => setUserRoleF(e.target.value)} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="">{t('admin.all_roles')}</option>
+                {ROLES.map((r) => <option key={r} value={r}>{t('role.' + r)}</option>)}
+              </select>
+              <select value={userStatusF} onChange={(e) => setUserStatusF(e.target.value)} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="">{t('admin.all_statuses')}</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{t('admin.status_' + s)}</option>)}
+              </select>
+              <select value={userSortBy} onChange={(e) => setUserSortBy(e.target.value)} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+                <option value="name">{t('admin.col_name')}</option>
+                <option value="role">{t('admin.col_role')}</option>
+                <option value="status">{t('admin.col_status')}</option>
+                <option value="phone">{t('admin.col_phone')}</option>
+              </select>
+              <button type="button" onClick={() => setUserSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))} className="px-2.5 py-2 border border-gray-300 rounded-lg text-sm bg-white text-left">
+                {userSortDir === 'asc' ? `↑ ${t('sales.order_asc')}` : `↓ ${t('sales.order_desc')}`}
+              </button>
+            </div>
           </div>
-          {users.length === 0 ? (
+          {visibleUsers.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-6 text-center"><p className="text-gray-500 text-lg">{t('admin.no_users')}</p></div>
           ) : (
             <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -334,7 +382,7 @@ function AdminUsers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => (
+                    {visibleUsers.map((u) => (
                       <tr key={u.id} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium text-gray-900">{u.full_name}{u.id === me?.id && <span className="ml-2 text-xs text-blue-600">({t('admin.you')})</span>}</td>
                         <td className="px-6 py-4 text-gray-700">{u.phone}</td>
@@ -356,7 +404,7 @@ function AdminUsers() {
 
               {/* Mobile cards */}
               <ul className="md:hidden divide-y divide-gray-100">
-                {users.map((u) => (
+                {visibleUsers.map((u) => (
                   <li key={u.id} className="px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -376,7 +424,7 @@ function AdminUsers() {
                   </li>
                 ))}
               </ul>
-              <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">{t('sales.showing', { n: users.length, total: users.length })}</div>
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 text-sm text-gray-600">{t('sales.showing', { n: visibleUsers.length, total: users.length })}</div>
             </div>
           )}
         </>

@@ -3,7 +3,7 @@
 import { formatRs } from '@/lib/format';
 import { useT } from '@/contexts/LanguageContext';
 
-const StatCard = ({ title, value, icon, color = 'blue', subtitle }) => {
+const StatCard = ({ title, value, icon, color = 'blue', subtitle, wide = false }) => {
   const colorClasses = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
     green: 'bg-green-50 border-green-200 text-green-700',
@@ -20,20 +20,20 @@ const StatCard = ({ title, value, icon, color = 'blue', subtitle }) => {
     indigo: 'bg-indigo-100 text-indigo-600',
   };
 
+  // Icon sits on the title row; the value gets the FULL card width below it (and
+  // money cards span the whole row on mobile) so large amounts are never clipped.
   return (
-    <div className={`${colorClasses[color]} border rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">{title}</p>
-          <p className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-        </div>
+    <div className={`${colorClasses[color]} border rounded-lg p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow ${wide ? 'col-span-2 sm:col-span-1' : ''}`}>
+      <div className="flex items-start justify-between gap-2 mb-1.5 sm:mb-2">
+        <p className="text-xs sm:text-sm font-medium text-gray-600">{title}</p>
         {icon && (
-          <div className={`${iconColorClasses[color]} p-2.5 sm:p-3 rounded-lg shrink-0`}>
+          <div className={`${iconColorClasses[color]} p-2 sm:p-2.5 rounded-lg shrink-0`}>
             {icon}
           </div>
         )}
       </div>
+      <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 leading-tight break-words tabular-nums">{value}</p>
+      {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
     </div>
   );
 };
@@ -83,8 +83,8 @@ export const StatsCards = ({ stats = {} }) => {
       <StatCard title={t('stats.total_sales')} value={total_sales.toString()} icon={<SalesIcon />} color="blue" />
       <StatCard title={t('stats.success_rate')} value={`${success_rate}%`} icon={<CompletedIcon />} color="green"
         subtitle={t('stats.success_rate_hint', { won: won_sales, total: total_sales })} />
-      <StatCard title={t('stats.total_revenue')} value={formatRs(total_revenue)} icon={<RevenueIcon />} color="purple" />
-      <StatCard title={t('stats.total_collectible')} value={formatRs(total_collectible)} icon={<RevenueIcon />} color="indigo" />
+      <StatCard title={t('stats.total_revenue')} value={formatRs(total_revenue)} icon={<RevenueIcon />} color="purple" wide />
+      <StatCard title={t('stats.total_collectible')} value={formatRs(total_collectible)} icon={<RevenueIcon />} color="indigo" wide />
       <StatCard title={t('stats.in_progress')} value={inProgress.toString()} icon={<PendingIcon />} color="yellow" />
       <StatCard title={t('stats.closed')} value={closed.toString()} icon={<CompletedIcon />} color="green" />
     </div>
